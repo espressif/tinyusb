@@ -34,11 +34,6 @@
 //--------------------------------------------------------------------+
 // MACRO CONSTANT TYPEDEF
 //--------------------------------------------------------------------+
-enum
-{
-  BULK_PACKET_SIZE = (TUD_OPT_HIGH_SPEED ? 512 : 64)
-};
-
 typedef struct
 {
   uint8_t itf_num;
@@ -166,7 +161,7 @@ uint32_t tud_cdc_n_write(uint8_t itf, void const* buffer, uint32_t bufsize)
   uint16_t ret = tu_fifo_write_n(&p_cdc->tx_ff, buffer, bufsize);
 
   // flush if queue more than packet size
-  if ( tu_fifo_count(&p_cdc->tx_ff) >= BULK_PACKET_SIZE )
+  if ( (tu_fifo_count(&p_cdc->tx_ff) >= CFG_TUD_CDC_EP_BUFSIZE) || tu_fifo_full(&p_cdc->tx_ff) )
   {
     tud_cdc_n_write_flush(itf);
   }
@@ -450,7 +445,7 @@ bool cdcd_xfer_cb(uint8_t rhport, uint8_t ep_addr, xfer_result_t result, uint32_
     {
       // If there is no data left, a ZLP should be sent if
       // xferred_bytes is multiple of EP Packet size and not zero
-      if ( !tu_fifo_count(&p_cdc->tx_ff) && xferred_bytes && (0 == (xferred_bytes & (BULK_PACKET_SIZE-1))) )
+      if ( !tu_fifo_count(&p_cdc->tx_ff) && xferred_bytes && (0 == (xferred_bytes & (CFG_TUD_CDC_EP_BUFSIZE-1))) )
       {
         if ( usbd_edpt_claim(rhport, p_cdc->ep_in) )
         {

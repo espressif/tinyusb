@@ -32,6 +32,7 @@ set(srcs
     "src/class/hid/hid_device.c"
     "src/class/midi/midi_device.c"
     "src/class/msc/msc_device.c"
+    "src/class/net/ncm_device.c"
     "src/class/vendor/vendor_device.c"
     "src/common/tusb_fifo.c"
     "src/device/usbd_control.c"

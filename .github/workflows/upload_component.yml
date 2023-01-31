@@ -14,7 +14,7 @@ jobs:
       
       - name: Remove unneeded files
         shell: bash
-        run: rm -rf docs tools lib
+        run: rm -rf docs tools lib/embedded-cli lib/fatfs lib/SEGGER_RTT
 
       - name: Upload components to component service
         uses: espressif/upload-components-ci-action@v1

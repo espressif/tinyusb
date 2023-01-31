@@ -20,12 +20,12 @@ dependencies:
 
 Or simply run:
 ```
-idf.py add-dependency esp_tinyusb^1.0.0
+idf.py add-dependency "esp_tinyusb^1.0.0"
 ```
 ### 2. Use TinyUSB only, without the [additions](https://github.com/espressif/idf-extra-components/tree/master/usb/esp_tinyusb/)
 
 Use this option for custom TinyUSB applications.
-In this case you will have to provide configuration header file ``tusb_config.h``. More informatin about TinyUSB configuration can be found [in official TinyUSB documentation](https://docs.tinyusb.org/en/latest/reference/getting_started.html).
+In this case you will have to provide configuration header file ``tusb_config.h``. More information about TinyUSB configuration can be found [in official TinyUSB documentation](https://docs.tinyusb.org/en/latest/reference/getting_started.html).
 
 You will also have to tell TinyUSB where to find the configuration file. This can be achieved by adding following CMake snippet to you main component's ``CMakeLists.txt``:
 
@@ -39,12 +39,12 @@ Again, you can add this component to your project by adding ``idf_component.yml`
 ```yaml
 ## IDF Component Manager Manifest File
 dependencies:
-  tinyusb: "~0.12.1" # Automatically update bugfix releases. TinyUSB does not guarantee backward compatibility
+  tinyusb: "~0.14.2" # Automatically update bugfix releases. TinyUSB does not guarantee backward compatibility
 ```
 
 Or simply run:
 ```
-idf.py add-dependency tinyusb~0.12.1
+idf.py add-dependency "tinyusb~0.14.2"
 ```
 
-README from the upstream TinyUSB can be found [here](README.rst).
+README from the upstream TinyUSB can be found in [hathach/tinyusb/README](https://github.com/hathach/tinyusb/blob/master/README.rst).

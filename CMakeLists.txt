@@ -18,6 +18,7 @@ set(includes_private
     "hw/bsp/"
     "src/"
     "src/device"
+    "lib/networking" # For RNDIS definitions
     )
 
 set(includes_public
@@ -27,12 +28,22 @@ set(includes_public
     )
 
 set(srcs
-    "src/portable/espressif/${tusb_family}/dcd_${tusb_family}.c"
     "src/class/cdc/cdc_device.c"
     "src/class/hid/hid_device.c"
     "src/class/midi/midi_device.c"
     "src/class/msc/msc_device.c"
     "src/class/vendor/vendor_device.c"
+    "src/class/audio/audio_device.c"
+    "src/class/bth/bth_device.c"
+    # NET class
+    "src/class/net/ecm_rndis_device.c"
+    "lib/networking/rndis_reports.c"
+    "src/class/net/ncm_device.c"
+    # DFU
+    "src/class/dfu/dfu_device.c"
+    "src/class/dfu/dfu_rt_device.c"
+    # Common, device-mode related
+    "src/portable/espressif/${tusb_family}/dcd_${tusb_family}.c"
     "src/common/tusb_fifo.c"
     "src/device/usbd_control.c"
     "src/device/usbd.c"

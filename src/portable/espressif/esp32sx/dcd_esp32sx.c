@@ -31,7 +31,8 @@
 #if (((CFG_TUSB_MCU == OPT_MCU_ESP32S2) ||  (CFG_TUSB_MCU == OPT_MCU_ESP32S3)) && CFG_TUD_ENABLED)
 
 // Espressif
-#include "freertos/xtensa_api.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "esp_intr_alloc.h"
 #include "esp_log.h"
 #include "soc/dport_reg.h"
@@ -173,7 +174,7 @@ void dcd_init(uint8_t rhport)
   /* If USB host misbehaves during status portion of control xfer
     (non zero-length packet), send STALL back and discard. Full speed. */
   USB0.dcfg |= USB_NZSTSOUTHSHK_M | // NonZero .... STALL
-      (3 << 0);            // dev speed: fullspeed 1.1 on 48 mhz  // TODO no value in usb_reg.h (IDF-1476)
+      (3 << 0);            // dev speed: fullspeed 1.1 on 48 mhz  // USB_ENA32KHZSUSP bit is defined from IDF v5.1 onwards
 
   USB0.gahbcfg |= USB_NPTXFEMPLVL_M | USB_GLBLLNTRMSK_M; // Global interruptions ON
   USB0.gusbcfg |= USB_FORCEDEVMODE_M;                    // force devmode
@@ -193,6 +194,7 @@ void dcd_init(uint8_t rhport)
                  USB_RXFLVIMSK_M   |
                  USB_ERLYSUSPMSK_M |
                  USB_USBSUSPMSK_M  |
+                 USB_WKUPINTMSK_M  |
                  USB_USBRSTMSK_M   |
                  USB_ENUMDONEMSK_M |
                  USB_RESETDETMSK_M |

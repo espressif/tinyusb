@@ -31,7 +31,7 @@
 
 #define TUSB_VERSION_MAJOR     0
 #define TUSB_VERSION_MINOR     15
-#define TUSB_VERSION_REVISION  0
+#define TUSB_VERSION_REVISION  1
 #define TUSB_VERSION_STRING    TU_STRING(TUSB_VERSION_MAJOR) "." TU_STRING(TUSB_VERSION_MINOR) "." TU_STRING(TUSB_VERSION_REVISION)
 
 //--------------------------------------------------------------------+
@@ -110,6 +110,7 @@
 // Espressif
 #define OPT_MCU_ESP32S2           900 ///< Espressif ESP32-S2
 #define OPT_MCU_ESP32S3           901 ///< Espressif ESP32-S3
+#define OPT_MCU_ESP32P4           902 ///< Espressif ESP32-P4
 
 // Dialog
 #define OPT_MCU_DA1469X          1000 ///< Dialog Semiconductor DA1469x

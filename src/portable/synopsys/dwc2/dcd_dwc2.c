@@ -43,7 +43,7 @@
 
 #if defined(TUP_USBIP_DWC2_STM32)
   #include "dwc2_stm32.h"
-#elif TU_CHECK_MCU(OPT_MCU_ESP32S2, OPT_MCU_ESP32S3)
+#elif TU_CHECK_MCU(OPT_MCU_ESP32S2, OPT_MCU_ESP32S3, OPT_MCU_ESP32P4)
   #include "dwc2_esp32.h"
 #elif TU_CHECK_MCU(OPT_MCU_GD32VF103)
   #include "dwc2_gd32.h"

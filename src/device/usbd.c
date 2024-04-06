@@ -528,6 +528,8 @@ void tud_task_ext(uint32_t timeout_ms, bool in_isr)
         _usbd_dev.ep_status[0][TUSB_DIR_IN ].busy = 0;
         _usbd_dev.ep_status[0][TUSB_DIR_IN ].claimed = 0;
 
+        if (tud_setup_received) tud_setup_received(&event.setup_received);
+
         // Process control request
         if ( !process_control_request(event.rhport, &event.setup_received) )
         {

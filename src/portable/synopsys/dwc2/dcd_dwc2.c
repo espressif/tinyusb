@@ -521,8 +521,9 @@ void dcd_init (uint8_t rhport)
   // Force device mode
   dwc2->gusbcfg = (dwc2->gusbcfg & ~GUSBCFG_FHMOD) | GUSBCFG_FDMOD;
 
-  // Clear A override, force B Valid
-  dwc2->gotgctl = (dwc2->gotgctl & ~GOTGCTL_AVALOEN) | GOTGCTL_BVALOEN | GOTGCTL_BVALOVAL;
+  // No overrides
+  dwc2->gotgctl &= ~(GOTGCTL_BVALOEN | GOTGCTL_BVALOVAL | GOTGCTL_VBVALOVAL);
+
 
   // If USB host misbehaves during status portion of control xfer
   // (non zero-length packet), send STALL back and discard.
@@ -629,6 +630,60 @@ void dcd_sof_enable(uint8_t rhport, bool en)
 /* DCD Endpoint port
  *------------------------------------------------------------------*/
 
+#if TU_CHECK_MCU(OPT_MCU_ESP32S2, OPT_MCU_ESP32S3, OPT_MCU_ESP32P4)
+
+// Reset opened IN/OUT endpoint counters
+static void dcd_edpt_counters_reset(uint8_t rhport)
+{
+  dwc2_ep_counters[rhport].active_in = 0;
+  dwc2_ep_counters[rhport].active_out = 0;
+}
+
+// Check if IN/OUT endpoint counter is available before opening endpoint
+// return values:
+// true : Endpoint available, value increased by one
+// false : No more endpoints available, counter value reached maximum value
+static bool dcd_edpt_counter_available(uint8_t rhport, uint8_t dir)
+{
+    // Verify that we have a vacant EP
+    if ((dwc2_ep_counters[rhport].active_in + dwc2_ep_counters[rhport].active_out) >
+            (dwc2_ep_counters[rhport].max_total - 1)) {
+        return false;
+    }
+    // Get the ep_count amount at the moment as a temporal variable and update it
+    uint8_t new_ep_count = (dir) ? dwc2_ep_counters[rhport].active_in : dwc2_ep_counters[rhport].active_out;
+    new_ep_count++;
+
+    // Verify overflow for IN EP ESP32Sx
+ #if TU_CHECK_MCU(OPT_MCU_ESP32S2, OPT_MCU_ESP32S3)
+     // ESP32Sx has 6 endpoints, from which only 5 can be configured as IN
+     if ((dir) && (new_ep_count > (dwc2_ep_counters[rhport].max_total - 1))) {
+         return false;
+     }
+ #endif // TU_CHECK_MCU(OPT_MCU_ESP32S2, OPT_MCU_ESP32S3)
+    // Write new value back
+    if(dir) {
+        dwc2_ep_counters[rhport].active_in = new_ep_count;
+    } else {
+        dwc2_ep_counters[rhport].active_out = new_ep_count;
+    }
+    return true;
+}
+
+// Release an endpoint.
+static bool dcd_edpt_counter_release(uint8_t rhport, uint8_t dir)
+{
+  if (dir) {
+    TU_ASSERT(dwc2_ep_counters[rhport].active_in == 0);    // Check if number of opened EPs is not zero
+    dwc2_ep_counters[rhport].active_in--;                  // Decrease endpoint counter
+  } else {
+    TU_ASSERT(dwc2_ep_counters[rhport].active_out == 0);
+    dwc2_ep_counters[rhport].active_out--;
+  }
+  return true;
+}
+#endif // OPT_MCU_ESP32S2, OPT_MCU_ESP32S3, OPT_MCU_ESP32P4
+
 bool dcd_edpt_open (uint8_t rhport, tusb_desc_endpoint_t const * desc_edpt)
 {
   (void) rhport;
@@ -639,7 +694,12 @@ bool dcd_edpt_open (uint8_t rhport, tusb_desc_endpoint_t const * desc_edpt)
   uint8_t const epnum = tu_edpt_number(desc_edpt->bEndpointAddress);
   uint8_t const dir   = tu_edpt_dir(desc_edpt->bEndpointAddress);
 
-  TU_ASSERT(epnum < ep_count);
+  #if TU_CHECK_MCU(OPT_MCU_ESP32S2, OPT_MCU_ESP32S3, OPT_MCU_ESP32P4)
+  if (!dcd_edpt_counter_available(rhport, dir)) {
+    TU_LOG(1, "No endpoints available (ep_max=%d) \r\n", dwc2_ep_counters[rhport].max_total);
+    return false;
+  }
+  #endif // OPT_MCU_ESP32S2, OPT_MCU_ESP32S3, OPT_MCU_ESP32P4
 
   xfer_ctl_t * xfer = XFER_CTL_BASE(epnum, dir);
   xfer->max_size = tu_edpt_packet_size(desc_edpt);
@@ -696,7 +756,7 @@ bool dcd_edpt_open (uint8_t rhport, tusb_desc_endpoint_t const * desc_edpt)
 
     _allocated_fifo_words_tx += fifo_size;
 
-    TU_LOG(DWC2_DEBUG, "    Allocated %u bytes at offset %lu", fifo_size*4, _dwc2_controller[rhport].ep_fifo_size-_allocated_fifo_words_tx*4);
+    TU_LOG(DWC2_DEBUG, "    Allocated %u bytes at offset %lu\r\n", fifo_size*4, _dwc2_controller[rhport].ep_fifo_size-_allocated_fifo_words_tx*4);
 
     // DIEPTXF starts at FIFO #1.
     // Both TXFD and TXSA are in unit of 32-bit words.
@@ -719,6 +779,10 @@ void dcd_edpt_close_all (uint8_t rhport)
 {
   dwc2_regs_t * dwc2     = DWC2_REG(rhport);
   uint8_t const ep_count = _dwc2_controller[rhport].ep_count;
+
+  #if TU_CHECK_MCU(OPT_MCU_ESP32S2, OPT_MCU_ESP32S3, OPT_MCU_ESP32P4)
+  dcd_edpt_counters_reset(rhport);
+  #endif
 
   // Disable non-control interrupt
   dwc2->daintmsk = (1 << DAINTMSK_OEPM_Pos) | (1 << DAINTMSK_IEPM_Pos);
@@ -876,6 +940,13 @@ void dcd_edpt_close (uint8_t rhport, uint8_t ep_addr)
   uint8_t const dir   = tu_edpt_dir(ep_addr);
 
   dcd_edpt_disable(rhport, ep_addr, false);
+
+  #if TU_CHECK_MCU(OPT_MCU_ESP32S2, OPT_MCU_ESP32S3, OPT_MCU_ESP32P4)
+  // Release an endpoint if it is not the 0 EP
+  if (epnum) {
+    dcd_edpt_counter_release(rhport, dir);
+  }
+  #endif
 
   // Update max_size
   xfer_status[epnum][dir].max_size = 0;  // max_size = 0 marks a disabled EP - required for changing FIFO allocation
@@ -1229,6 +1300,9 @@ void dcd_int_handler(uint8_t rhport)
     // USBRST is start of reset.
     dwc2->gintsts = GINTSTS_USBRST;
     bus_reset(rhport);
+  #if TU_CHECK_MCU(OPT_MCU_ESP32S2, OPT_MCU_ESP32S3, OPT_MCU_ESP32P4)
+    dcd_edpt_counters_reset(rhport);
+  #endif // OPT_MCU_ESP32S2, OPT_MCU_ESP32S3, OPT_MCU_ESP32P4
   }
 
   if(int_status & GINTSTS_ENUMDNE)
@@ -1288,7 +1362,7 @@ void dcd_int_handler(uint8_t rhport)
 
   if(int_status & GINTSTS_SOF)
   {
-    dwc2->gotgint = GINTSTS_SOF;
+    dwc2->gintsts = GINTSTS_SOF;
 
     if (_sof_en)
     {
@@ -1316,7 +1390,7 @@ void dcd_int_handler(uint8_t rhport)
     do
     {
       handle_rxflvl_irq(rhport);
-    } while(dwc2->gotgint & GINTSTS_RXFLVL);
+    } while(dwc2->gintsts & GINTSTS_RXFLVL);
 
     // Manage RX FIFO size
     if (_out_ep_closed)

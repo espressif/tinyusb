@@ -32,6 +32,14 @@ typedef struct
   uint32_t  ep_fifo_size;
 }dwc2_controller_t;
 
+#if TU_CHECK_MCU(OPT_MCU_ESP32S2, OPT_MCU_ESP32S3, OPT_MCU_ESP32P4)
+typedef struct {
+    uint8_t active_out;
+    uint8_t active_in;
+    const uint8_t max_total;
+}dwc2_ep_counters_t;
+#endif
+
 /* DWC OTG HW Release versions */
 #define DWC2_CORE_REV_2_71a   0x4f54271a
 #define DWC2_CORE_REV_2_72a   0x4f54272a

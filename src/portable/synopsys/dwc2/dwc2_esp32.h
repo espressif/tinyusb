@@ -39,7 +39,7 @@
   #define DWC2_PERIPH_COUNT    2
   #define DWC2_HS_PERIPH_BASE  0x50000000UL
   #define DWC2_FS_PERIPH_BASE  0x50040000UL
-  #define DWC2_HS_INTR_SOURCE  ETS_USB_OTG_ENDP_MULTI_PROC_INTR_SOURCE
+  #define DWC2_HS_INTR_SOURCE  ETS_USB_OTG_INTR_SOURCE
   #define DWC2_FS_INTR_SOURCE  ETS_USB_OTG11_CH0_INTR_SOURCE
 #elif TU_CHECK_MCU(OPT_MCU_ESP32S2, OPT_MCU_ESP32S3)
   #define DWC2_PERIPH_COUNT    1
@@ -55,7 +55,7 @@
 #endif
 
 #if DWC2_FS_PERIPH_BASE
-  #define DWC2_FS_EP_MAX       6             // USB_OUT_EP_NUM. TODO ESP32Sx only has 5 tx fifo (5 endpoint IN)
+  #define DWC2_FS_EP_MAX       6             // USB_OUT_EP_NUM
   #define DWC2_FS_EP_FIFO_SIZE 1024
 #endif
 
@@ -79,6 +79,16 @@ static const dwc2_controller_t _dwc2_controller[] =
 
 #ifdef DWC2_HS_PERIPH_BASE
   { .reg_base = DWC2_HS_PERIPH_BASE, .irqnum = DWC2_HS_INTR_SOURCE, .ep_count = DWC2_HS_EP_MAX, .ep_fifo_size = DWC2_HS_EP_FIFO_SIZE },
+#endif
+};
+
+static dwc2_ep_counters_t dwc2_ep_counters[] =
+{
+#ifdef DWC2_FS_PERIPH_BASE
+  { .active_out = 0, .active_in = 0, .max_total = DWC2_FS_EP_MAX },
+#endif
+#ifdef DWC2_HS_PERIPH_BASE
+  { .active_out = 0, .active_in = 0, .max_total = DWC2_HS_EP_MAX },
 #endif
 };
 

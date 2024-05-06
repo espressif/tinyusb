@@ -35,7 +35,7 @@ The stack supports the following MCUs:
 - **Allwinner:** F1C100s/F1C200s
 - **Broadcom:** BCM2837, BCM2711
 - **Dialog:** DA1469x
-- **Espressif:** ESP32-S2, ESP32-S3
+- **Espressif:** ESP32-S2, ESP32-S3, ESP32-P4
 - **GigaDevice:** GD32VF103
 - **Infineon:** XMC4500
 - **MicroChip:** SAMD11, SAMD21, SAMD51, SAME5x, SAMG55, SAML21, SAML22, SAME7x

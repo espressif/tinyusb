@@ -1256,7 +1256,11 @@ bool usbd_edpt_xfer(uint8_t rhport, uint8_t ep_addr, uint8_t * buffer, uint16_t 
   // could return and USBD task can preempt and clear the busy
   _usbd_dev.ep_status[epnum][dir].busy = 1;
 
-  if ( dcd_edpt_xfer(rhport, ep_addr, buffer, total_bytes) )
+  (void) osal_mutex_lock(_usbd_mutex, OSAL_TIMEOUT_WAIT_FOREVER);
+  bool xfer_result = dcd_edpt_xfer(rhport, ep_addr, buffer, total_bytes);
+  (void) osal_mutex_unlock(_usbd_mutex);
+
+  if (xfer_result)
   {
     return true;
   }else
@@ -1290,7 +1294,11 @@ bool usbd_edpt_xfer_fifo(uint8_t rhport, uint8_t ep_addr, tu_fifo_t * ff, uint16
   // and usbd task can preempt and clear the busy
   _usbd_dev.ep_status[epnum][dir].busy = 1;
 
-  if (dcd_edpt_xfer_fifo(rhport, ep_addr, ff, total_bytes))
+  (void) osal_mutex_lock(_usbd_mutex, OSAL_TIMEOUT_WAIT_FOREVER);
+  bool xfer_result = dcd_edpt_xfer_fifo(rhport, ep_addr, ff, total_bytes);
+  (void) osal_mutex_unlock(_usbd_mutex);
+
+  if (xfer_result)
   {
     TU_LOG_USBD("OK\r\n");
     return true;

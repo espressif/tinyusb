@@ -67,6 +67,10 @@
 // Debug level for DWC2
 #define DWC2_DEBUG    2
 
+// Enable endpoint counting code (enforcement unstable currently)
+// Created a way to disable until espressif fixes it
+#define DWC2_ENDPOINT_COUNTING  0
+
 #ifndef dcache_clean
 #define dcache_clean(_addr, _size)
 #endif
@@ -695,10 +699,12 @@ bool dcd_edpt_open (uint8_t rhport, tusb_desc_endpoint_t const * desc_edpt)
   uint8_t const dir   = tu_edpt_dir(desc_edpt->bEndpointAddress);
 
   #if TU_CHECK_MCU(OPT_MCU_ESP32S2, OPT_MCU_ESP32S3, OPT_MCU_ESP32P4)
+  #if DWC2_ENDPOINT_COUNTING
   if (!dcd_edpt_counter_available(rhport, dir)) {
     TU_LOG(1, "No endpoints available (ep_max=%d) \r\n", dwc2_ep_counters[rhport].max_total);
     return false;
   }
+  #endif // DWC2_ENDPOINT_COUNTING
   #endif // OPT_MCU_ESP32S2, OPT_MCU_ESP32S3, OPT_MCU_ESP32P4
 
   xfer_ctl_t * xfer = XFER_CTL_BASE(epnum, dir);
@@ -942,10 +948,12 @@ void dcd_edpt_close (uint8_t rhport, uint8_t ep_addr)
   dcd_edpt_disable(rhport, ep_addr, false);
 
   #if TU_CHECK_MCU(OPT_MCU_ESP32S2, OPT_MCU_ESP32S3, OPT_MCU_ESP32P4)
+  #if DWC2_ENDPOINT_COUNTING
   // Release an endpoint if it is not the 0 EP
   if (epnum) {
     dcd_edpt_counter_release(rhport, dir);
   }
+  #endif // DWC2_ENDPOINT_COUNTING
   #endif
 
   // Update max_size

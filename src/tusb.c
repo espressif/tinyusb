@@ -58,6 +58,23 @@ bool tusb_init(void)
   return true;
 }
 
+// Teardown device/host stack
+bool tusb_teardown(void)
+{
+#if CFG_TUD_ENABLED && defined(TUD_OPT_RHPORT)
+  // teardown device stack CFG_TUSB_RHPORTx_MODE must be defined
+  TU_ASSERT ( tud_teardown(TUD_OPT_RHPORT) );
+#endif
+
+#if CFG_TUH_ENABLED && defined(TUH_OPT_RHPORT)
+  // teardown host stack CFG_TUSB_RHPORTx_MODE must be defined
+  // not implemented
+  return false;
+#endif
+
+  return true;
+}
+
 bool tusb_inited(void)
 {
   bool ret = false;

@@ -133,8 +133,8 @@ bool tusb_init(void);
 // Check if stack is initialized
 bool tusb_inited(void);
 
-// TODO
-// bool tusb_teardown(void);
+// Teardown device/host stack
+bool tusb_teardown(void);
 
 #ifdef __cplusplus
  }

@@ -43,6 +43,9 @@ bool tud_init (uint8_t rhport);
 // Check if device stack is already initialized
 bool tud_inited(void);
 
+// Teardown device stack
+bool tud_teardown (uint8_t rhport);
+
 // Task function should be called in main/rtos loop, extended version of tud_task()
 // - timeout_ms: millisecond to wait, zero = no wait, 0xFFFFFFFF = wait forever
 // - in_isr: if function is called in ISR

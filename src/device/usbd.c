@@ -437,6 +437,31 @@ bool tud_init (uint8_t rhport)
   return true;
 }
 
+bool tud_teardown (uint8_t rhport)
+{
+  // skip if nothing to teardown
+  if ( !tud_inited() ) return true;
+
+  TU_LOG(USBD_DBG, "USBD teardown on controller %u\r\n", rhport);
+
+  // Disable interrupt
+  dcd_int_disable(rhport);
+
+  // Disable class devices
+  for (uint8_t i = 0; i < TOTAL_DRIVER_COUNT; i++)
+  {
+    usbd_class_driver_t const * driver = get_driver(i);
+    TU_ASSERT(driver);
+    TU_LOG(USBD_DBG, "%s reset\r\n", driver->name);
+    driver->reset(rhport);
+  }
+
+  // clean port
+  _usbd_rhport = RHPORT_INVALID;
+
+  return true;
+}
+
 static void configuration_reset(uint8_t rhport)
 {
   for ( uint8_t i = 0; i < TOTAL_DRIVER_COUNT; i++ )

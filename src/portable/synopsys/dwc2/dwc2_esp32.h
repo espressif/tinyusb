@@ -62,8 +62,8 @@
 // OTG HS always has higher number of endpoints than FS
 // Declare the DWC2_EP_MAX as a higher number, because dcd_dwc2.c has a xfer_status
 // buffer, tied to the EP MAX value.
-// IMPORTANT: Be careful during usage of two USB periphs (HS and FS) at the same time with full EPs load.
-#ifdef USB_OTG_HS_PERIPH_BASE
+// IMPORTANT: Be careful during usage of two USB peripherals (HS and FS) at the same time with full EPs load.
+#ifdef DWC2_HS_PERIPH_BASE
   #define DWC2_EP_MAX   DWC2_HS_EP_MAX
 #else
   #define DWC2_EP_MAX   DWC2_FS_EP_MAX

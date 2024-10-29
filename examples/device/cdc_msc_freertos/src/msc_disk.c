@@ -23,10 +23,13 @@
  *
  */
 
-#include "bsp/board.h"
+#include "bsp/board_api.h"
 #include "tusb.h"
 
 #if CFG_TUD_MSC
+
+// whether host does safe-eject
+static bool ejected = false;
 
 // Some MCU doesn't have enough 8KB SRAM to store the whole disk
 // We will use Flash as read-only disk with board that has
@@ -137,7 +140,14 @@ bool tud_msc_test_unit_ready_cb(uint8_t lun)
 {
   (void) lun;
 
-  return true; // RAM disk is always ready
+  // RAM disk is ready until ejected
+  if (ejected) {
+    // Additional Sense 3A-00 is NOT_FOUND
+    tud_msc_set_sense(lun, SCSI_SENSE_NOT_READY, 0x3a, 0x00);
+    return false;
+  }
+
+  return true;
 }
 
 // Invoked when received SCSI_CMD_READ_CAPACITY_10 and SCSI_CMD_READ_FORMAT_CAPACITY to determine the disk size
@@ -166,6 +176,7 @@ bool tud_msc_start_stop_cb(uint8_t lun, uint8_t power_condition, bool start, boo
     }else
     {
       // unload disk storage
+      ejected = true;
     }
   }
 
@@ -184,7 +195,18 @@ int32_t tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void* buff
   uint8_t const* addr = msc_disk[lba] + offset;
   memcpy(buffer, addr, bufsize);
 
-  return bufsize;
+  return (int32_t) bufsize;
+}
+
+bool tud_msc_is_writable_cb (uint8_t lun)
+{
+  (void) lun;
+
+#ifdef CFG_EXAMPLE_MSC_READONLY
+  return false;
+#else
+  return true;
+#endif
 }
 
 // Callback invoked when received WRITE10 command.
@@ -203,7 +225,7 @@ int32_t tud_msc_write10_cb(uint8_t lun, uint32_t lba, uint32_t offset, uint8_t* 
   (void) lba; (void) offset; (void) buffer;
 #endif
 
-  return bufsize;
+  return (int32_t) bufsize;
 }
 
 // Callback invoked when received an SCSI command not in built-in list below
@@ -237,14 +259,14 @@ int32_t tud_msc_scsi_cb (uint8_t lun, uint8_t const scsi_cmd[16], void* buffer, 
   {
     if(in_xfer)
     {
-      memcpy(buffer, response, resplen);
+      memcpy(buffer, response, (size_t) resplen);
     }else
     {
       // SCSI output
     }
   }
 
-  return resplen;
+  return (int32_t) resplen;
 }
 
 #endif

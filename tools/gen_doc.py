@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import pandas as pd
 from tabulate import tabulate
 from pathlib import Path
@@ -7,15 +8,15 @@ from get_deps import deps_all
 TOP = Path(__file__).parent.parent.resolve()
 
 
-###########################################
+# -----------------------------------------
 # Dependencies
-###########################################
+# -----------------------------------------
 
 def gen_deps_doc():
     deps_rst = Path(TOP) / "docs/reference/dependencies.rst"
-    df = pd.DataFrame.from_dict(deps_all, orient='index', columns=['Commit', 'Project'])
-    df = df[['Project', 'Commit']].sort_index()
-    df = df.rename_axis("Path")
+    df = pd.DataFrame.from_dict(deps_all, orient='index', columns=['Repo', 'Commit', 'Required by'])
+    df = df[['Repo', 'Commit', 'Required by']].sort_index()
+    df = df.rename_axis("Local Path")
 
     outstr = f"""\
 ************

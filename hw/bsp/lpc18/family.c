@@ -25,44 +25,18 @@
  */
 
 #include "chip.h"
-#include "bsp/board.h"
+#include "bsp/board_api.h"
 #include "board.h"
-
-#ifdef BOARD_TUD_RHPORT
-  #define PORT_SUPPORT_DEVICE(_n)  (BOARD_TUD_RHPORT == _n)
-#else
-  #define PORT_SUPPORT_DEVICE(_n)  0
-#endif
-
-#ifdef BOARD_TUH_RHPORT
-  #define PORT_SUPPORT_HOST(_n)    (BOARD_TUH_RHPORT == _n)
-#else
-  #define PORT_SUPPORT_HOST(_n)    0
-#endif
 
 //--------------------------------------------------------------------+
 // USB Interrupt Handler
 //--------------------------------------------------------------------+
-void USB0_IRQHandler(void)
-{
-  #if PORT_SUPPORT_DEVICE(0)
-    tud_int_handler(0);
-  #endif
-
-  #if PORT_SUPPORT_HOST(0)
-    tuh_int_handler(0);
-  #endif
+void USB0_IRQHandler(void) {
+  tusb_int_handler(0, true);
 }
 
-void USB1_IRQHandler(void)
-{
-  #if PORT_SUPPORT_DEVICE(1)
-    tud_int_handler(1);
-  #endif
-
-  #if PORT_SUPPORT_HOST(1)
-    tuh_int_handler(1);
-  #endif
+void USB1_IRQHandler(void) {
+  tusb_int_handler(1, true);
 }
 
 //--------------------------------------------------------------------+
@@ -74,28 +48,26 @@ const uint32_t OscRateIn = 12000000;
 const uint32_t ExtRateIn = 0;
 
 // Invoked by startup code
-void SystemInit(void)
-{
+void SystemInit(void) {
 #ifdef __USE_LPCOPEN
-	extern void (* const g_pfnVectors[])(void);
+  extern void (*const g_pfnVectors[])(void);
   unsigned int *pSCB_VTOR = (unsigned int *) 0xE000ED08;
-	*pSCB_VTOR = (unsigned int) g_pfnVectors;
+  *pSCB_VTOR = (unsigned int) g_pfnVectors;
 #endif
 
   board_lpc18_pinmux();
 
-  #ifdef TRACE_ETM
+#ifdef TRACE_ETM
   // Trace clock is limited to 60MHz, limit CPU clock to 120MHz
   Chip_SetupCoreClock(CLKIN_CRYSTAL, 120000000UL, true);
-  #else
+#else
   // CPU clock max to 180 Mhz
   Chip_SetupCoreClock(CLKIN_CRYSTAL, MAX_CLOCK_FREQ, true);
-  #endif
+#endif
 
 }
 
-void board_init(void)
-{
+void board_init(void) {
   SystemCoreClockUpdate();
 
 #if CFG_TUSB_OS == OPT_OS_NONE
@@ -122,40 +94,30 @@ void board_init(void)
   Chip_UART_TXEnable(UART_DEV);
 
   //------------- USB -------------//
-#if PORT_SUPPORT_DEVICE(0) || PORT_SUPPORT_HOST(0)
   Chip_USB0_Init();
-#endif
-
-#if PORT_SUPPORT_DEVICE(1) || PORT_SUPPORT_HOST(1)
   Chip_USB1_Init();
-#endif
 }
 
 //--------------------------------------------------------------------+
 // Board porting API
 //--------------------------------------------------------------------+
 
-void board_led_write(bool state)
-{
+void board_led_write(bool state) {
   Chip_GPIO_SetPinState(LPC_GPIO_PORT, LED_PORT, LED_PIN, state);
 }
 
-uint32_t board_button_read(void)
-{
+uint32_t board_button_read(void) {
   // active low
   return Chip_GPIO_GetPinState(LPC_GPIO_PORT, BUTTON_PORT, BUTTON_PIN) ? 0 : 1;
 }
 
-int board_uart_read(uint8_t* buf, int len)
-{
+int board_uart_read(uint8_t *buf, int len) {
   return Chip_UART_Read(UART_DEV, buf, len);
 }
 
-int board_uart_write(void const * buf, int len)
-{
-  uint8_t const* buf8 = (uint8_t const*) buf;
-  for(int i=0; i<len; i++)
-  {
+int board_uart_write(void const *buf, int len) {
+  uint8_t const *buf8 = (uint8_t const *) buf;
+  for (int i = 0; i < len; i++) {
     while ((Chip_UART_ReadLineStatus(UART_DEV) & UART_LSR_THRE) == 0) {}
     Chip_UART_SendByte(UART_DEV, buf8[i]);
   }
@@ -165,13 +127,13 @@ int board_uart_write(void const * buf, int len)
 
 #if CFG_TUSB_OS == OPT_OS_NONE
 volatile uint32_t system_ticks = 0;
-void SysTick_Handler (void)
-{
+
+void SysTick_Handler(void) {
   system_ticks++;
 }
 
-uint32_t board_millis(void)
-{
+uint32_t board_millis(void) {
   return system_ticks;
 }
+
 #endif

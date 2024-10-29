@@ -23,7 +23,7 @@
  *
  */
 
-#include "bsp/board.h"
+#include "bsp/board_api.h"
 #include "tusb.h"
 
 /* From https://www.kernel.org/doc/html/latest/input/gamepad.html
@@ -253,6 +253,7 @@ bool diff_report(sony_ds4_report_t const* rpt1, sony_ds4_report_t const* rpt2)
 
 void process_sony_ds4(uint8_t const* report, uint16_t len)
 {
+  (void)len;
   const char* dpad_str[] = { "N", "NE", "E", "SE", "S", "SW", "W", "NW", "none" };
 
   // previous report used to compare for changes

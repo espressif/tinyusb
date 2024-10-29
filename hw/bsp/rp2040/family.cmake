@@ -1,19 +1,37 @@
 cmake_minimum_required(VERSION 3.13)
-include_guard()
+include_guard(GLOBAL)
 
 if (NOT BOARD)
 	message("BOARD not specified, defaulting to pico_sdk")
 	set(BOARD pico_sdk)
 endif()
 
+include(${CMAKE_CURRENT_LIST_DIR}/boards/${BOARD}/board.cmake)
+
+#if (TOOLCHAIN STREQUAL "clang")
+#	set(PICO_COMPILER "pico_arm_clang")
+#else()
+#	set(PICO_COMPILER "pico_arm_gcc")
+#endif()
+
 # add the SDK in case we are standalone tinyusb example (noop if already present)
 include(${CMAKE_CURRENT_LIST_DIR}/pico_sdk_import.cmake)
 
 # include basic family CMake functionality
 set(FAMILY_MCUS RP2040)
-set(JLINK_DEVICE rp2040_m0_0)
 
-include(${CMAKE_CURRENT_LIST_DIR}/boards/${BOARD}/board.cmake)
+if (PICO_PLATFORM STREQUAL "rp2040")
+	set(JLINK_DEVICE rp2040_m0_0)
+	set(OPENOCD_TARGET rp2040)
+elseif (PICO_PLATFORM STREQUAL "rp2350-arm-s" OR PICO_PLATFORM STREQUAL "rp2350")
+	set(JLINK_DEVICE rp2350_m33_0)
+	set(OPENOCD_TARGET rp2350)
+elseif (PICO_PLATFORM STREQUAL "rp2350-riscv")
+	set(JLINK_DEVICE rp2350_riscv_0)
+	set(OPENOCD_TARGET rp2350-riscv)
+endif()
+
+set(OPENOCD_OPTION "-f interface/cmsis-dap.cfg -f target/${OPENOCD_TARGET}.cfg -c \"adapter speed 5000\"")
 
 if (NOT PICO_TINYUSB_PATH)
 	set(PICO_TINYUSB_PATH ${TOP})
@@ -29,13 +47,13 @@ endif()
 add_library(tinyusb_common_base INTERFACE)
 
 target_sources(tinyusb_common_base INTERFACE
-		${TOP}/src/tusb.c
-		${TOP}/src/common/tusb_fifo.c
-		)
+	${TOP}/src/tusb.c
+	${TOP}/src/common/tusb_fifo.c
+	)
 
 target_include_directories(tinyusb_common_base INTERFACE
-		${TOP}/src
-		)
+	${TOP}/src
+	)
 
 if(DEFINED LOG)
 	set(TINYUSB_DEBUG_LEVEL ${LOG})
@@ -47,9 +65,9 @@ else ()
 endif()
 
 target_compile_definitions(tinyusb_common_base INTERFACE
-		CFG_TUSB_MCU=OPT_MCU_RP2040
-		CFG_TUSB_OS=${TINYUSB_OPT_OS}
-		CFG_TUSB_DEBUG=${TINYUSB_DEBUG_LEVEL}
+	CFG_TUSB_MCU=OPT_MCU_RP2040
+	CFG_TUSB_OS=${TINYUSB_OPT_OS}
+	CFG_TUSB_DEBUG=${TINYUSB_DEBUG_LEVEL}
 )
 
 target_link_libraries(tinyusb_common_base INTERFACE
@@ -103,6 +121,20 @@ target_compile_definitions(tinyusb_host_base INTERFACE
 )
 
 #------------------------------------
+# Host MAX3421
+#------------------------------------
+add_library(tinyusb_host_max3421 INTERFACE)
+target_sources(tinyusb_host_max3421 INTERFACE
+	${TOP}/src/portable/analog/max3421/hcd_max3421.c
+	)
+target_compile_definitions(tinyusb_host_max3421 INTERFACE
+	CFG_TUH_MAX3421=1
+	)
+target_link_libraries(tinyusb_host_max3421 INTERFACE
+	hardware_spi
+	)
+
+#------------------------------------
 # BSP & Additions
 #------------------------------------
 add_library(tinyusb_bsp INTERFACE)
@@ -111,6 +143,10 @@ target_sources(tinyusb_bsp INTERFACE
 	)
 target_include_directories(tinyusb_bsp INTERFACE
 	${TOP}/hw
+	)
+target_link_libraries(tinyusb_bsp INTERFACE
+	pico_unique_id
+	hardware_clocks
 	)
 
 # tinyusb_additions will hold our extra settings for examples
@@ -124,7 +160,7 @@ target_compile_definitions(tinyusb_additions INTERFACE
 if(LOGGER STREQUAL "RTT" OR LOGGER STREQUAL "rtt")
 	target_compile_definitions(tinyusb_additions INTERFACE
 			LOGGER_RTT
-			SEGGER_RTT_MODE_DEFAULT=SEGGER_RTT_MODE_BLOCK_IF_FIFO_FULL
+			#SEGGER_RTT_MODE_DEFAULT=SEGGER_RTT_MODE_BLOCK_IF_FIFO_FULL
 	)
 
 	target_sources(tinyusb_additions INTERFACE
@@ -153,10 +189,16 @@ function(family_configure_target TARGET RTOS)
 	# export RTOS_SUFFIX to parent scope
 	set(RTOS_SUFFIX ${RTOS_SUFFIX} PARENT_SCOPE)
 
+	# compile define from command line
+	if(DEFINED CFLAGS_CLI)
+		target_compile_options(${TARGET} PUBLIC ${CFLAGS_CLI})
+	endif()
+
 	pico_add_extra_outputs(${TARGET})
 	pico_enable_stdio_uart(${TARGET} 1)
-	target_link_libraries(${TARGET} PUBLIC pico_stdlib pico_bootsel_via_double_reset tinyusb_board${RTOS_SUFFIX} tinyusb_additions)
+	target_link_libraries(${TARGET} PUBLIC pico_stdlib tinyusb_board${RTOS_SUFFIX} tinyusb_additions)
 
+	family_flash_openocd(${TARGET})
 	family_flash_jlink(${TARGET})
 endfunction()
 
@@ -183,6 +225,7 @@ function(family_add_pico_pio_usb TARGET)
 	target_link_libraries(${TARGET} PUBLIC tinyusb_pico_pio_usb)
 endfunction()
 
+
 # since Pico-PIO_USB compiler support may lag, and change from version to version, add a function that pico-sdk/pico-examples
 # can check (if present) in case the user has updated their TinyUSB
 function(is_compiler_supported_by_pico_pio_usb OUTVAR)
@@ -205,6 +248,11 @@ function(family_configure_host_example TARGET RTOS)
 		if (PICO_PIO_USB_COMPILER_SUPPORTED)
 			family_add_pico_pio_usb(${PROJECT})
 		endif()
+	endif()
+
+	# for max3421 host
+	if (MAX3421_HOST STREQUAL "1")
+		target_link_libraries(${TARGET} PUBLIC tinyusb_host_max3421)
 	endif()
 endfunction()
 

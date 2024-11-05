@@ -1,0 +1,28 @@
+name: Build ESP IoT Solution USB Device examples
+
+on:
+  schedule:
+    - cron: '0 0 * * SAT' # Saturday midnight
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        # idf_ver: ["release-v5.0", "release-v5.1", "release-v5.2", "release-v5.3", "release-v5.4", "latest"]
+        idf_ver: ["latest"]
+    runs-on: ubuntu-20.04
+    container: espressif/idf:${{ matrix.idf_ver }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+      - name: Build ESP IoT Solution USB Device examples
+        shell: bash
+        run: |
+          . ${IDF_PATH}/export.sh
+          git clone https://github.com/espressif/esp-iot-solution.git
+          pip install idf-component-manager==2.0.4 idf-build-apps --upgrade
+          idf-build-apps find --paths esp-iot-solution/examples/usb/device/ --recursive --manifest-files esp-iot-solution/examples/.build-rules.yml --manifest-rootpath esp-iot-solution/
+          idf-build-apps build --paths esp-iot-solution/examples/usb/device/ --recursive --manifest-files esp-iot-solution/examples/.build-rules.yml --manifest-rootpath esp-iot-solution/

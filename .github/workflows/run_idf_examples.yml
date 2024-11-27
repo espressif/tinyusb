@@ -31,12 +31,12 @@ jobs:
         with:
           name: usb_device_apps_bin_${{ matrix.idf_ver }}
           path: |
-              examples/peripheral/usb/device/build_esp*/bootloader/bootloader.bin
-              examples/peripheral/usb/device/build_esp*/partition_table/partition-table.bin
-              examples/peripheral/usb/device/build_esp*/tusb_*.bin
-              examples/peripheral/usb/device/build_esp*/tusb_*.elf
-              examples/peripheral/usb/device/build_esp*/flasher_args.json
-              examples/peripheral/usb/device/build_esp*/config/sdkconfig.json
+              **/tusb_*/build/bootloader/bootloader.bin
+              **/tusb_*/build/partition_table/partition-table.bin
+              **/tusb_*/build/tusb_*.bin
+              **/tusb_*/build/tusb_*.elf
+              **/tusb_*/build/flasher_args.json
+              **/tusb_*/build/config/sdkconfig.json
           if-no-files-found: error
 
 

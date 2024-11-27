@@ -1,4 +1,4 @@
-name: Build ESP-IDF USB examples
+name: Build ESP-IDF USB Device examples
 
 on:
   schedule:

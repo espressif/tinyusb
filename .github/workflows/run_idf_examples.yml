@@ -22,11 +22,25 @@ jobs:
         shell: bash
         run: |
           . ${IDF_PATH}/export.sh
-          pip install idf-component-manager==1.5.2 idf-build-apps --upgrade
+          pip install idf-build-apps==2.4.3 --upgrade
           python .github/ci/override_managed_component.py tinyusb . ${IDF_PATH}/examples/peripherals/usb/device/tusb_*
           cd ${IDF_PATH}
           idf-build-apps find --path examples/peripherals/usb/device/ --recursive --target esp32s2 --manifest-file examples/peripherals/.build-test-rules.yml
           idf-build-apps build --path examples/peripherals/usb/device/ --recursive --target esp32s2 --manifest-file examples/peripherals/.build-test-rules.yml
+                - uses: actions/upload-artifact@v4
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: usb_device_apps_bin_${{ matrix.idf_ver }}
+          path: |
+              examples/peripheral/usb/device/build_esp*/bootloader/bootloader.bin
+              examples/peripheral/usb/device/build_esp*/partition_table/partition-table.bin
+              examples/peripheral/usb/device/build_esp*/tusb_*.bin
+              examples/peripheral/usb/device/build_esp*/tusb_*.elf
+              examples/peripheral/usb/device/build_esp*/flasher_args.json
+              examples/peripheral/usb/device/build_esp*/config/sdkconfig.json
+          if-no-files-found: error
+
 
   run-target:
     name: Run pytest for USB Device examples

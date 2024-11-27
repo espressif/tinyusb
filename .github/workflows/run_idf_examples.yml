@@ -38,7 +38,7 @@ jobs:
         # idf_ver: ["release-v5.0", "release-v5.1", "release-v5.2", "release-v5.3", "release-v5.4", "latest"]
         idf_ver: ["latest"]
         idf_target: ["esp32s2"]
-        runner_tag: ["usb_device"]
+        runner_tag: ["usb_host", "usb_device"]
     runs-on: [self-hosted, linux, docker, "${{ matrix.idf_target }}", "${{ matrix.runner_tag }}"]
     container:
       image: python:3.11-bookworm

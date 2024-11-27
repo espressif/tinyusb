@@ -27,8 +27,6 @@ jobs:
           cd ${IDF_PATH}
           idf-build-apps find --path examples/peripherals/usb/device/ --recursive --target esp32s2 --manifest-file examples/peripherals/.build-test-rules.yml
           idf-build-apps build --path examples/peripherals/usb/device/ --recursive --target esp32s2 --manifest-file examples/peripherals/.build-test-rules.yml
-                - uses: actions/upload-artifact@v4
-
       - uses: actions/upload-artifact@v4
         with:
           name: usb_device_apps_bin_${{ matrix.idf_ver }}

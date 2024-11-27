@@ -25,8 +25,8 @@ jobs:
           pip install idf-component-manager==1.5.2 idf-build-apps --upgrade
           python .github/ci/override_managed_component.py tinyusb . ${IDF_PATH}/examples/peripherals/usb/device/tusb_*
           cd ${IDF_PATH}
-          idf-build-apps find --path examples/peripherals/usb/device/ --recursive --target all --manifest-file examples/peripherals/.build-test-rules.yml
-          idf-build-apps build --path examples/peripherals/usb/device/ --recursive --target all --manifest-file examples/peripherals/.build-test-rules.yml
+          idf-build-apps find --path examples/peripherals/usb/device/ --recursive --target esp32s2 --manifest-file examples/peripherals/.build-test-rules.yml
+          idf-build-apps build --path examples/peripherals/usb/device/ --recursive --target esp32s2 --manifest-file examples/peripherals/.build-test-rules.yml
 
   run-target:
     name: Run pytest for USB Device examples

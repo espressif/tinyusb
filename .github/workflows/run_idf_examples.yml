@@ -29,14 +29,14 @@ jobs:
           idf-build-apps build --path examples/peripherals/usb/device/ --recursive --target esp32s2 --manifest-file examples/peripherals/.build-test-rules.yml
       - uses: actions/upload-artifact@v4
         with:
-          name: usb_device_apps_bin_${{ matrix.idf_ver }}
+          name: usb_device_tusb_apps_bin_${{ matrix.idf_ver }}
           path: |
-              **/tusb_*/**/build/bootloader/bootloader.bin
-              **/tusb_*/**/build/partition_table/partition-table.bin
-              **/tusb_*/**/build/tusb_*.bin
-              **/tusb_*/**/build/tusb_*.elf
-              **/tusb_*/**/build/flasher_args.json
-              **/tusb_*/**/build/config/sdkconfig.json
+              **/tusb_*/build/bootloader/bootloader.bin
+              **/tusb_*/build/partition_table/partition-table.bin
+              **/tusb_*/build/tusb_*.bin
+              **/tusb_*/build/tusb_*.elf
+              **/tusb_*/build/flasher_args.json
+              **/tusb_*/build/config/sdkconfig.json
           if-no-files-found: error
 
 
@@ -59,7 +59,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: usb_device_apps_bin_${{ matrix.idf_ver }}
+          name: usb_device_tusb_apps_bin_${{ matrix.idf_ver }}
       - name: Install Python packages
         env:
           PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"

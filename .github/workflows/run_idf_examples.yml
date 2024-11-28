@@ -24,18 +24,21 @@ jobs:
           . ${IDF_PATH}/export.sh
           pip install idf-component-manager==1.5.2 idf-build-apps --upgrade
           python .github/ci/override_managed_component.py tinyusb . ${IDF_PATH}/examples/peripherals/usb/device/tusb_*
-          idf-build-apps find --path ${IDF_PATH}/examples/peripherals/usb/device/ --recursive --target esp32s2 --manifest-file ${IDF_PATH}/examples/peripherals/.build-test-rules.yml
-          idf-build-apps build --path ${IDF_PATH}/examples/peripherals/usb/device/ --recursive --target esp32s2 --manifest-file ${IDF_PATH}/examples/peripherals/.build-test-rules.yml
+          cd ${IDF_PATH}
+          idf-build-apps find --path examples/peripherals/usb/device/ --recursive --target esp32s2 --manifest-file examples/peripherals/.build-test-rules.yml
+          idf-build-apps build --path examples/peripherals/usb/device/ --recursive --target esp32s2 --manifest-file examples/peripherals/.build-test-rules.yml
       - uses: actions/upload-artifact@v4
         with:
           name: usb_device_tusb_apps_bin_${{ matrix.idf_ver }}
           path: |
-              ${IDF_PATH}/examples/peripherals/usb/device/tusb_*/build/bootloader/bootloader.bin
-              ${IDF_PATH}/examples/peripherals/usb/device/tusb_*/build/partition_table/partition-table.bin
-              ${IDF_PATH}/examples/peripherals/usb/device/tusb_*/build/tusb_*.bin
-              ${IDF_PATH}/examples/peripherals/usb/device/tusb_*/build/tusb_*.elf
-              ${IDF_PATH}/examples/peripherals/usb/device/tusb_*/build/flasher_args.json
-              ${IDF_PATH}/examples/peripherals/usb/device/tusb_*/build/config/sdkconfig.json
+              ls
+              echo ${IDF_PATH}
+              examples/peripherals/usb/device/tusb_*/build/bootloader/bootloader.bin
+              examples/peripherals/usb/device/tusb_*/build/partition_table/partition-table.bin
+              examples/peripherals/usb/device/tusb_*/build/tusb_*.bin
+              examples/peripherals/usb/device/tusb_*/build/tusb_*.elf
+              examples/peripherals/usb/device/tusb_*/build/flasher_args.json
+              examples/peripherals/usb/device/tusb_*/build/config/sdkconfig.json
           if-no-files-found: error
 
 

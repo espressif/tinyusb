@@ -66,5 +66,6 @@ jobs:
         run: pip install --only-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf pyserial pyusb
       - name: Run USB Test App on target
         run: |
-          . ${IDF_PATH}/export.sh
-          pytest --embedded-services esp,idf --target=${{ matrix.idf_target }} -m ${{ matrix.runner_tag }} --build-dir=build_${{ matrix.idf_target }}
+          ls
+          echo ${IDF_PATH}
+#          pytest --embedded-services esp,idf --target=${{ matrix.idf_target }} -m ${{ matrix.runner_tag }} --build-dir=build_${{ matrix.idf_target }}

@@ -25,6 +25,7 @@ jobs:
           pip install idf-component-manager==1.5.2 idf-build-apps==2.4.3 --upgrade
           set EXAMPLES_PATH="${IDF_PATH}/examples/peripherals/usb/device"
           set MANIFEST_FILE="${IDF_PATH}/examples/peripherals/.build-test-rules.yml"
+          echo $EXAMPLES_PATH
           python .github/ci/override_managed_component.py tinyusb . ${IDF_PATH}/examples/peripherals/usb/device/tusb_*
       - uses: actions/upload-artifact@v4
         with:

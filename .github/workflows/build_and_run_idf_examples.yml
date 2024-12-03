@@ -26,7 +26,7 @@ jobs:
           set EXAMPLES_PATH="${IDF_PATH}/examples/peripherals/usb/device"
           set MANIFEST_FILE="${IDF_PATH}/examples/peripherals/.build-test-rules.yml"
           echo $EXAMPLES_PATH
-          python .github/ci/override_managed_component.py tinyusb . ${IDF_PATH}/examples/peripherals/usb/device/tusb_*
+          python .github/ci/override_managed_component.py tinyusb . $EXAMPLES_PATH/tusb_*
       - uses: actions/upload-artifact@v4
         with:
           name: usb_device_tusb_apps_bin_${{ matrix.idf_ver }}

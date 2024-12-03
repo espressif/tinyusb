@@ -33,6 +33,7 @@ jobs:
           name: usb_device_tusb_apps_bin_${{ matrix.idf_ver }}
           path: |
               /opt/esp/idf/examples/peripherals/usb/device/tusb_*/build/bootloader/bootloader.bin
+              **/*_usb_device_tusb_*/build_esp*/bootloader/bootloader.bin
           if-no-files-found: error
 
 

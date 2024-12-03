@@ -30,8 +30,8 @@ jobs:
           set MANIFEST_FILE="${IDF_PATH}/examples/peripherals/.build-test-rules.yml"
           echo ${EXAMPLES_PATH}
           python .github/ci/override_managed_component.py tinyusb . ${EXAMPLES_PATH}/tusb_*
-          idf-build-apps find --path ${EXAMPLES_PATH} --recursive --target esp32s2 --manifest-file ${MANIFEST_FILE} --build-dir build_@t_@w --work-dir @f_@t_@w
-          idf-build-apps build --path ${EXAMPLES_PATH} --recursive --target esp32s2 --manifest-file ${MANIFEST_FILE} --build-dir build_@t_@w --work-dir @f_@t_@w
+#          idf-build-apps find --path ${EXAMPLES_PATH} --recursive --target esp32s2 --manifest-file ${MANIFEST_FILE} --build-dir build_@t_@w --work-dir @f_@t_@w
+#          idf-build-apps build --path ${EXAMPLES_PATH} --recursive --target esp32s2 --manifest-file ${MANIFEST_FILE} --build-dir build_@t_@w --work-dir @f_@t_@w
       - uses: actions/upload-artifact@v4
         with:
           name: usb_device_tusb_apps_bin_${{ matrix.idf_ver }}

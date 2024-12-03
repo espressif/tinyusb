@@ -18,11 +18,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
-      - name: Install Python packages
-        env:
-          PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
-        run: pip install --only-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf pyserial pyusb
-      - name: Build and Run ESP-IDF USB Device examples
+      - name: Build ESP-IDF USB Device examples
         shell: bash
         run: |
           . ${IDF_PATH}/export.sh
@@ -32,4 +28,44 @@ jobs:
           python .github/ci/override_managed_component.py tinyusb . ${EXAMPLES_PATH}/tusb_*
           idf-build-apps find --path ${EXAMPLES_PATH}/ --recursive --target esp32s2 --manifest-file ${MANIFEST_FILE} --build-dir build_@t_@w --work-dir @f_@t_@w
           idf-build-apps build --path ${EXAMPLES_PATH}/ --recursive --target esp32s2 --manifest-file ${MANIFEST_FILE} --build-dir build_@t_@w --work-dir @f_@t_@w
-          pytest ${EXAMPLES_PATH} --target esp32s2
+      - uses: actions/upload-artifact@v4
+        with:
+          name: usb_device_tusb_apps_bin_${{ matrix.idf_ver }}
+          path: |
+              **/*_usb_device_tusb_*/build_esp*/bootloader/bootloader.bin
+              **/*_usb_device_tusb_*/build_esp*/partition_table/partition-table.bin
+              **/*_usb_device_tusb_*/build_esp*/tusb_*.bin
+              **/*_usb_device_tusb_*/build_esp*/tusb_*.elf
+              **/*_usb_device_tusb_*/build_esp*/build/flasher_args.json
+              **/*_usb_device_tusb_*/build_esp*/config/sdkconfig.json
+          if-no-files-found: error
+
+  run-target:
+    name: Run pytest for USB Device examples
+    if: ${{ github.repository_owner == 'espressif' }}
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        # idf_ver: ["release-v5.0", "release-v5.1", "release-v5.2", "release-v5.3", "release-v5.4", "latest"]
+        idf_ver: ["latest"]
+        idf_target: ["esp32s2"]
+        runner_tag: ["usb_device"]
+    runs-on: [self-hosted, linux, docker, "${{ matrix.idf_target }}", "${{ matrix.runner_tag }}"]
+    container:
+      image: python:3.11-bookworm
+      options: --privileged --device-cgroup-rule="c 188:* rmw" --device-cgroup-rule="c 166:* rmw" --group-add plugdev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: usb_device_tusb_apps_bin_${{ matrix.idf_ver }}
+      - name: Install Python packages
+        env:
+          PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
+        run: pip install --only-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf pyserial pyusb
+      - name: Run USB Test App on target
+        run: |
+          ls
+          echo ${IDF_PATH}
+          pytest --embedded-services esp,idf --target=${{ matrix.idf_target }} -m ${{ matrix.runner_tag }} --build-dir=build_${{ matrix.idf_target }}

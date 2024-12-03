@@ -22,22 +22,20 @@ jobs:
         shell: bash
         run: |
           . ${IDF_PATH}/export.sh
-          pip install idf-component-manager==1.5.2 idf-build-apps --upgrade
-          python .github/ci/override_managed_component.py tinyusb . ${IDF_PATH}/examples/peripherals/usb/device/tusb_*
-          cd ${IDF_PATH}
-          idf-build-apps find --path examples/peripherals/usb/device/ --recursive --target esp32s2 --manifest-file examples/peripherals/.build-test-rules.yml --build-dir build_@t_@w --work-dir @f_@t_@w
-          idf-build-apps build --path examples/peripherals/usb/device/ --recursive --target esp32s2 --manifest-file examples/peripherals/.build-test-rules.yml --build-dir build_@t_@w --work-dir @f_@t_@w
+          pip install idf-build-apps==2.4.3 --upgrade
+          export PEDANTIC_FLAGS="-DIDF_CI_BUILD -Werror -Werror=deprecated-declarations -Werror=unused-variable -Werror=unused-but-set-variable -Werror=unused-function"
+          export EXTRA_CFLAGS="${PEDANTIC_FLAGS} -Wstrict-prototypes"
+          export EXTRA_CXXFLAGS="${PEDANTIC_FLAGS}"
+          set EXAMPLES_PATH="${IDF_PATH}/examples/peripherals/usb/device"
+          set MANIFEST_FILE="${IDF_PATH}/examples/peripherals/.build-test-rules.yml"
+          python .github/ci/override_managed_component.py tinyusb . ${EXAMPLES_PATH}/tusb_*
+          idf-build-apps find --path ${EXAMPLES_PATH} --recursive --target esp32s2 --manifest-file ${MANIFEST_FILE} --build-dir build_@t_@w --work-dir @f_@t_@w
+          idf-build-apps build --path ${EXAMPLES_PATH} --recursive --target esp32s2 --manifest-file ${MANIFEST_FILE} --build-dir build_@t_@w --work-dir @f_@t_@w
       - uses: actions/upload-artifact@v4
         with:
           name: usb_device_tusb_apps_bin_${{ matrix.idf_ver }}
-          path:
-              examples/peripherals/usb/device/tusb_*/build/bootloader/bootloader.bin
-              # **/usb/device/tusb_*/build/bootloader/bootloader.bin
-              # **/usb/device/tusb_*/build/partition_table/partition-table.bin
-              # **/usb/device/tusb_*/build/tusb_*.bin
-              # **/usb/device/tusb_*/build/tusb_*.elf
-              # **/usb/device/tusb_*/build/flasher_args.json
-              # **/usb/device/tusb_*/build/config/sdkconfig.json
+          path: |
+              **/usb/device/tusb_*/build/bootloader/bootloader.bin
           if-no-files-found: error
 
 

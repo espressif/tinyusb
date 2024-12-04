@@ -32,12 +32,12 @@ jobs:
         with:
           name: usb_device_tusb_apps_bin_${{ matrix.idf_ver }}
           path: |
-              **/*_usb_device_tusb_*/build_esp*/bootloader/bootloader.bin
-              **/*_usb_device_tusb_*/build_esp*/partition_table/partition-table.bin
-              **/*_usb_device_tusb_*/build_esp*/tusb_*.bin
-              **/*_usb_device_tusb_*/build_esp*/tusb_*.elf
-              **/*_usb_device_tusb_*/build_esp*/build/flasher_args.json
-              **/*_usb_device_tusb_*/build_esp*/config/sdkconfig.json
+              **/**/build_esp*/bootloader/bootloader.bin
+              **/**/build_esp*/partition_table/partition-table.bin
+              **/**/build_esp*/tusb_*.bin
+              **/**/build_esp*/tusb_*.elf
+              **/**/build_esp*/build/flasher_args.json
+              **/**/build_esp*/config/sdkconfig.json
           if-no-files-found: error
   run-target:
     name: Run pytest for USB Device examples

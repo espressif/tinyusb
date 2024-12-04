@@ -23,9 +23,9 @@ jobs:
         run: |
           . ${IDF_PATH}/export.sh
           pip install idf-component-manager==1.5.2 idf-build-apps==2.4.3 --upgrade
-          export EXAMPLES_PATH="${IDF_PATH}/examples/peripherals/usb/device"
+          export EXAMPLES_PATH="${IDF_PATH}/examples/peripherals/usb/device/tusb_hid"
           export MANIFEST_FILE="${IDF_PATH}/examples/peripherals/.build-test-rules.yml"
-          python .github/ci/override_managed_component.py tinyusb . ${EXAMPLES_PATH}/tusb_*
+          python .github/ci/override_managed_component.py tinyusb . ${EXAMPLES_PATH}
           idf-build-apps find --path ${EXAMPLES_PATH}/ --recursive --target esp32s2 --manifest-file ${MANIFEST_FILE} --build-dir build_@t_@w --work-dir @f_@t_@w
           idf-build-apps build --path ${EXAMPLES_PATH}/ --recursive --target esp32s2 --manifest-file ${MANIFEST_FILE} --build-dir build_@t_@w --work-dir @f_@t_@w
       - uses: actions/upload-artifact@v4
@@ -66,7 +66,7 @@ jobs:
         run: |
           cd ${IDF_PATH}
           . ./export.sh
-          pip install --only-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf pyserial pyusb python-gitlab
+          pip install --only-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf pyserial pyusb python-gitlab minio
       - name: Run USB Test App on target
         run: |
           cd ${IDF_PATH}

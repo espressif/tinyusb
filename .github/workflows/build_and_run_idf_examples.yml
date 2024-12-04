@@ -73,4 +73,4 @@ jobs:
           cd ${IDF_PATH}
           . ./export.sh
           export EXAMPLES_PATH="${IDF_PATH}/examples/peripherals/usb/device"
-          pytest ${EXAMPLES_PATH} --target=${{ matrix.idf_target }} -m ${{ matrix.runner_tag }} --app-path=build_${{ matrix.idf_target }}
+          pytest ${EXAMPLES_PATH} --target=${{ matrix.idf_target }} -m ${{ matrix.runner_tag }} --app-path=./

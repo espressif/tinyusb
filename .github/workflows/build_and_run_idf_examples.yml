@@ -71,4 +71,4 @@ jobs:
         run: |
           cd ${IDF_PATH}
           . ./export.sh
-          pytest examples/peripherals/usb/device --target ${{ matrix.idf_target }} --build-dir=build_${{ matrix.idf_target }}
+          pytest --target ${{ matrix.idf_target }} --build-dir=build_${{ matrix.idf_target }}

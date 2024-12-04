@@ -71,4 +71,6 @@ jobs:
         run: |
           cd ${IDF_PATH}
           . ./export.sh
-          pytest --embedded-services esp,idf --target=${{ matrix.idf_target }} -m ${{ matrix.runner_tag }} --build-dir=build_${{ matrix.idf_target }}
+          ls
+          pytest --target ${{ matrix.idf_target }}
+#          pytest --embedded-services esp,idf --target=${{ matrix.idf_target }} -m ${{ matrix.runner_tag }} --build-dir=build_${{ matrix.idf_target }}

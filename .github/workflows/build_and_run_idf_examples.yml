@@ -66,11 +66,10 @@ jobs:
         run: |
           cd ${IDF_PATH}
           . ./export.sh
-          pip install --only-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf pyserial pyusb python-gitlab minio idf-build-apps pytest_ignore_test_results
+          pip install --only-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf pyserial pyusb python-gitlab minio idf-build-apps pytest_ignore_test_results pytest-timeout
       - name: Run USB Test App on target
         run: |
           cd ${IDF_PATH}
           . ./export.sh
           ls
-          pytest --target ${{ matrix.idf_target }}
-#          pytest --embedded-services esp,idf --target=${{ matrix.idf_target }} -m ${{ matrix.runner_tag }} --build-dir=build_${{ matrix.idf_target }}
+          pytest --embedded-services esp,idf --target=${{ matrix.idf_target }} -m ${{ matrix.runner_tag }} --build-dir=build_${{ matrix.idf_target }}

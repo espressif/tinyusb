@@ -39,7 +39,6 @@ jobs:
               **/*_usb_device_tusb_*/build_esp*/build/flasher_args.json
               **/*_usb_device_tusb_*/build_esp*/config/sdkconfig.json
           if-no-files-found: error
-
   run-target:
     name: Run pytest for USB Device examples
     if: ${{ github.repository_owner == 'espressif' }}
@@ -67,10 +66,9 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: usb_device_tusb_apps_bin_${{ matrix.idf_ver }}
+          path: build_${{ matrix.idf_target }}
       - name: Run USB Test App on target
         run: |
           cd ${IDF_PATH}
           . ./export.sh
-          ls
           pytest examples/peripherals/usb/device --target ${{ matrix.idf_target }} --build-dir=build_${{ matrix.idf_target }}
-#          pytest --embedded-services esp,idf --target=${{ matrix.idf_target }} -m ${{ matrix.runner_tag }} --build-dir=build_${{ matrix.idf_target }}

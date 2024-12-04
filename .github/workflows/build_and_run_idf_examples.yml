@@ -53,7 +53,7 @@ jobs:
         runner_tag: ["usb_device"]
     runs-on: [self-hosted, linux, docker, "${{ matrix.idf_target }}", "${{ matrix.runner_tag }}"]
     container:
-      image: python:3.11-bookworm
+      image: espressif/idf:${{ matrix.idf_ver }}
       options: --privileged --device-cgroup-rule="c 188:* rmw" --device-cgroup-rule="c 166:* rmw" --group-add plugdev
     steps:
       - uses: actions/checkout@v4
@@ -63,9 +63,10 @@ jobs:
       - name: Install Python packages
         env:
           PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
-        run: pip install --only-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf pyserial pyusb
+        run: |
+          . ${IDF_PATH}/export.sh
+          pip install --only-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf pyserial pyusb
       - name: Run USB Test App on target
         run: |
-          ls
-          echo ${IDF_PATH}
-          pytest --embedded-services esp,idf --target=${{ matrix.idf_target }} -m ${{ matrix.runner_tag }} --build-dir=build_${{ matrix.idf_target }}
+          . ${IDF_PATH}/export.sh
+          pytest examples/peripherals/usb/device --embedded-services esp,idf --target=${{ matrix.idf_target }} -m ${{ matrix.runner_tag }} --build-dir=build_${{ matrix.idf_target }}

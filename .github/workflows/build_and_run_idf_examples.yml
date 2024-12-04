@@ -69,8 +69,7 @@ jobs:
           path: build_${{ matrix.idf_target }}
       - name: Run USB Test App on target
         run: |
-          ls
-          cp -v build_${{ matrix.idf_target }} ${IDF_PATH}
+          cp -rv build_${{ matrix.idf_target }} ${IDF_PATH}
           cd ${IDF_PATH}
           . ./export.sh
           export EXAMPLES_PATH="${IDF_PATH}/examples/peripherals/usb/device"

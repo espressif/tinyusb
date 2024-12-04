@@ -66,7 +66,7 @@ jobs:
         run: |
           cd ${IDF_PATH}
           . ./export.sh
-          pip install --only-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf pyserial pyusb
+          pip install --only-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf pyserial pyusb python-gitlab
       - name: Run USB Test App on target
         run: |
           cd ${IDF_PATH}

@@ -23,9 +23,9 @@ jobs:
         run: |
           . ${IDF_PATH}/export.sh
           pip install idf-component-manager==1.5.2 idf-build-apps==2.4.3 --upgrade
-          export EXAMPLES_PATH="${IDF_PATH}/examples/peripherals/usb/device/tusb_hid"
+          export EXAMPLES_PATH="${IDF_PATH}/examples/peripherals/usb/device/"
           export MANIFEST_FILE="${IDF_PATH}/examples/peripherals/.build-test-rules.yml"
-          python .github/ci/override_managed_component.py tinyusb . ${EXAMPLES_PATH}
+          python .github/ci/override_managed_component.py tinyusb . ${EXAMPLES_PATH}/tusb*
           idf-build-apps find --path ${EXAMPLES_PATH}/ --recursive --target esp32s2 --manifest-file ${MANIFEST_FILE} --build-dir build_@t_@w --work-dir @f_@t_@w
           idf-build-apps build --path ${EXAMPLES_PATH}/ --recursive --target esp32s2 --manifest-file ${MANIFEST_FILE} --build-dir build_@t_@w --work-dir @f_@t_@w
       - uses: actions/upload-artifact@v4
@@ -68,8 +68,7 @@ jobs:
           path: build_${{ matrix.idf_target }}
       - name: Run USB Test App on target
         run: |
-          cp -rv build_${{ matrix.idf_target }} ${IDF_PATH}
           cd ${IDF_PATH}
           . ./export.sh
           export EXAMPLES_PATH="${IDF_PATH}/examples/peripherals/usb/device"
-          pytest ${EXAMPLES_PATH} --target ${{ matrix.idf_target }} -m ${{ matrix.runner_tag }} --build-dir ${IDF_PATH}/build_${{ matrix.idf_target }}/_opt_esp_idf_examples_peripherals_usb_device_tusb_hid__esp32s2/build_${{ matrix.idf_target }}
+          pytest ${EXAMPLES_PATH} --target ${{ matrix.idf_target }} -m ${{ matrix.runner_tag }} --build-dir build_${{ matrix.idf_target }}

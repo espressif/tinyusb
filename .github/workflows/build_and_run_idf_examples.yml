@@ -72,4 +72,4 @@ jobs:
           cd ${IDF_PATH}
           . ./export.sh
           export EXAMPLES_PATH="${IDF_PATH}/examples/peripherals/usb/device"
-          pytest ${EXAMPLES_PATH} --target ${{ matrix.idf_target }} -m ${{ matrix.runner_tag }} --build-dir ${IDF_PATH}/_opt_esp_idf_examples_peripherals_usb_device_tusb_hid__esp32s2/build_${{ matrix.idf_target }}
+          pytest ${EXAMPLES_PATH} --target ${{ matrix.idf_target }} -m ${{ matrix.runner_tag }} --build-dir ${IDF_PATH}/build_${{ matrix.idf_target }}/_opt_esp_idf_examples_peripherals_usb_device_tusb_hid__esp32s2/build_${{ matrix.idf_target }}

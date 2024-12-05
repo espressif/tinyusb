@@ -35,7 +35,7 @@ jobs:
               **/*_usb_device_tusb_*/build_esp*/bootloader/bootloader.bin
               **/*_usb_device_tusb_*/build_esp*/partition_table/partition-table.bin
               **/*_usb_device_tusb_*/build_esp*/tusb_*.bin
-              **/*_usb_device_tusb_*/build_esp*/build/flasher_args.json
+              **/*_usb_device_tusb_*/build_esp*/flasher_args.json
               **/*_usb_device_tusb_*/build_esp*/config/sdkconfig.json
           if-no-files-found: error
   run-target:

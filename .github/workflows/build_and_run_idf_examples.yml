@@ -60,7 +60,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: ⚙️ Install System tools
-        run: apt-get -y install net-tools
+
+        run: |
+          apt update
+          apt install net-tools
       - name: ⚙️ Install Python packages
         env:
           PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"

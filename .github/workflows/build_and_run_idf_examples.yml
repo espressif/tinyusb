@@ -79,4 +79,4 @@ jobs:
           cd ${IDF_PATH}
           . ./export.sh
           export EXAMPLES_PATH="${IDF_PATH}/examples/peripherals/usb/device"
-          pytest ${EXAMPLES_PATH} --target ${{ matrix.idf_target }} -m ${{ matrix.runner_tag }} --ignore-result-cases=tusb_ncm
+          pytest ${EXAMPLES_PATH} --target ${{ matrix.idf_target }} -m ${{ matrix.runner_tag }} --ignore-result-cases=test_usb_device_ncm_example

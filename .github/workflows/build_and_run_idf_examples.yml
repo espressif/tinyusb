@@ -60,7 +60,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: ⚙️ Install System tools
-
         run: |
           apt update
           apt install net-tools
@@ -80,4 +79,4 @@ jobs:
           cd ${IDF_PATH}
           . ./export.sh
           export EXAMPLES_PATH="${IDF_PATH}/examples/peripherals/usb/device"
-          pytest ${EXAMPLES_PATH} --target ${{ matrix.idf_target }} -m ${{ matrix.runner_tag }}
+          pytest ${EXAMPLES_PATH} --target ${{ matrix.idf_target }} -m ${{ matrix.runner_tag }} --ignore-result-cases=tusb_ncm

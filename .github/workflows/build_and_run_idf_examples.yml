@@ -14,6 +14,8 @@ jobs:
         idf_ver: ["latest"]
     runs-on: ubuntu-20.04
     container: espressif/idf:${{ matrix.idf_ver }}
+    env:
+      IDF_PATH: /opt/esp/idf
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,11 +34,11 @@ jobs:
         with:
           name: usb_device_tusb_apps_bin_${{ matrix.idf_ver }}
           path: |
-              **/*tusb_*/build_esp*/bootloader/bootloader.bin
-              **/*tusb_*/build_esp*/partition_table/partition-table.bin
-              **/*tusb_*/build_esp*/tusb_*.bin
-              **/*tusb_*/build_esp*/flasher_args.json
-              **/*tusb_*/build_esp*/config/sdkconfig.json
+              ${env.IDF_PATH}/*/**/*tusb_*/build_esp*/bootloader/bootloader.bin
+              ${env.IDF_PATH}/*/**/*tusb_*/build_esp*/partition_table/partition-table.bin
+              ${env.IDF_PATH}/*/**/*tusb_*/build_esp*/tusb_*.bin
+              ${env.IDF_PATH}/*/**/*tusb_*/build_esp*/flasher_args.json
+              ${env.IDF_PATH}/*/**/*tusb_*/build_esp*/config/sdkconfig.json
           if-no-files-found: error
   run-target:
     name: Run pytest for USB Device examples
@@ -53,6 +55,8 @@ jobs:
     container:
       image: espressif/idf:${{ matrix.idf_ver }}
       options: --privileged --device-cgroup-rule="c 188:* rmw" --device-cgroup-rule="c 166:* rmw" --group-add plugdev
+    env:
+      IDF_PATH: /opt/esp/idf
     steps:
       - uses: actions/checkout@v4
       - name: Install Python packages
@@ -65,10 +69,10 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: usb_device_tusb_apps_bin_${{ matrix.idf_ver }}
-          path: build_${{ matrix.idf_target }}
+          path: ${env.IDF_PATH}
       - name: Run USB Test App on target
         run: |
           cd ${IDF_PATH}
           . ./export.sh
           export EXAMPLES_PATH="${IDF_PATH}/examples/peripherals/usb/device"
-          pytest ${EXAMPLES_PATH} --target ${{ matrix.idf_target }} -m ${{ matrix.runner_tag }} --build-dir build_${{ matrix.idf_target }}
+          pytest ${EXAMPLES_PATH} --target ${{ matrix.idf_target }} -m ${{ matrix.runner_tag }}

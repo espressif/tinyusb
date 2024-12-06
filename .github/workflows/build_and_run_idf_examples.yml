@@ -59,9 +59,9 @@ jobs:
       IDF_PATH: /opt/esp/idf
     steps:
       - uses: actions/checkout@v4
-      - name: Install system net-tools
-        run: sudo apt install net-tools
-      - name: Install Python packages
+      - name: ⚙️ Install System tools
+        run: sudo apt -y install net-tools
+      - name: ⚙️ Install Python packages
         env:
           PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
         run: |

@@ -65,7 +65,7 @@ jobs:
         run: |
           cd ${IDF_PATH}
           . ./export.sh
-          pip install --only-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf pyserial pyusb python-gitlab minio idf-build-apps pytest_ignore_test_results pytest-timeout ifconfig
+          pip install --only-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf pyserial pyusb python-gitlab minio idf-build-apps pytest_ignore_test_results pytest-timeout net-tools
       - uses: actions/download-artifact@v4
         with:
           name: usb_device_tusb_apps_bin_${{ matrix.idf_ver }}

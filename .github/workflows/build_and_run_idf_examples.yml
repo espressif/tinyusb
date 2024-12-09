@@ -37,6 +37,7 @@ jobs:
               /opt/esp/idf/examples/peripherals/usb/device/tusb_*/build/bootloader/bootloader.bin
               /opt/esp/idf/examples/peripherals/usb/device/tusb_*/build/partition_table/partition-table.bin
               /opt/esp/idf/examples/peripherals/usb/device/tusb_*/build/tusb_*.bin
+              /opt/esp/idf/examples/peripherals/usb/device/tusb_*/build/tusb_*.elf
               /opt/esp/idf/examples/peripherals/usb/device/tusb_*/build/flasher_args.json
               /opt/esp/idf/examples/peripherals/usb/device/tusb_*/build/config/sdkconfig.json
           if-no-files-found: error
@@ -63,9 +64,8 @@ jobs:
         run: |
           apt update
           apt install net-tools
-          cat /boot/config* | grep USB_G_NCM >> system_cfg.txt
           cat /proc/config.gz | gunzip >> system_cfg.txt
-          cat system_cfg.txt
+          cat system_cfg.txt | grep USB_G_NCM
       - name: ⚙️ Install Python packages
         env:
           PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"

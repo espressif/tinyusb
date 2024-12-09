@@ -1,4 +1,4 @@
-name: Build and Run ESP-IDF USB Device examples
+name: ESP-IDF USB Device examples
 
 on:
   schedule:
@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
-      - name: Build ESP-IDF USB Device examples
+      - name: Build
         shell: bash
         run: |
           . ${IDF_PATH}/export.sh
@@ -41,7 +41,7 @@ jobs:
               /opt/esp/idf/examples/peripherals/usb/device/tusb_*/build/config/sdkconfig.json
           if-no-files-found: error
   run-target:
-    name: Run pytest for USB Device examples
+    name: Run
     if: ${{ github.repository_owner == 'espressif' }}
     needs: build
     strategy:
@@ -63,7 +63,9 @@ jobs:
         run: |
           apt update
           apt install net-tools
-          cat /boot/config* | grep USB_G_NCM
+          cat /boot/config* | grep USB_G_NCM >> system_cfg.txt
+          cat /proc/config.gz | gunzip >> system_cfg.txt
+          cat system_cfg.txt
       - name: ⚙️ Install Python packages
         env:
           PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"

@@ -462,6 +462,9 @@ static bool _update_streaming_parameters(videod_streaming_interface_t const *stm
     case VIDEO_CS_ITF_VS_FORMAT_MJPEG:
       break;
 
+    case VIDEO_CS_ITF_VS_FORMAT_FRAME_BASED:
+      break;
+
     default: return false;
   }
 
@@ -484,6 +487,10 @@ static bool _update_streaming_parameters(videod_streaming_interface_t const *stm
         break;
 
       case VIDEO_CS_ITF_VS_FORMAT_MJPEG:
+        frame_size = (uint_fast32_t)frm->wWidth * frm->wHeight * 16 / 8; /* YUV422 */
+        break;
+
+      case VIDEO_CS_ITF_VS_FORMAT_FRAME_BASED:
         frame_size = (uint_fast32_t)frm->wWidth * frm->wHeight * 16 / 8; /* YUV422 */
         break;
 
@@ -576,6 +583,10 @@ static bool _negotiate_streaming_parameters(videod_streaming_interface_t const *
             frmnum = fmt->mjpeg.bDefaultFrameIndex;
             break;
 
+          case VIDEO_CS_ITF_VS_FORMAT_FRAME_BASED:
+            frmnum = fmt->frame_based.bDefaultFrameIndex;
+            break;
+
           default: return false;
         }
         break;
@@ -594,6 +605,10 @@ static bool _negotiate_streaming_parameters(videod_streaming_interface_t const *
         frame_size = (uint_fast32_t)frm->wWidth * frm->wHeight * 16 / 8; /* YUV422 */
         break;
 
+      case VIDEO_CS_ITF_VS_FORMAT_FRAME_BASED:
+        frame_size = (uint_fast32_t)frm->wWidth * frm->wHeight * 16 / 8; /* YUV422 */
+        break;
+
       default: return false;
     }
     param->dwMaxVideoFrameSize = frame_size;
@@ -607,7 +622,8 @@ static bool _negotiate_streaming_parameters(videod_streaming_interface_t const *
     tusb_desc_cs_video_fmt_t const *fmt = _find_desc_format(tu_desc_next(vs), end, fmtnum);
     tusb_desc_cs_video_frm_t const *frm = _find_desc_frame(tu_desc_next(fmt), end, frmnum);
 
-    uint_fast32_t interval, interval_ms;
+    uint_fast32_t interval = 0;
+    uint_fast32_t interval_ms = 0;
     switch (request) {
       case VIDEO_REQUEST_GET_MAX: {
         uint_fast32_t min_interval, max_interval;

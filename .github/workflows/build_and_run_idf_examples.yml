@@ -62,8 +62,6 @@ jobs:
         run: |
           apt update
           apt install net-tools
-          cat /proc/config.gz | gunzip >> system_cfg.txt
-          cat system_cfg.txt | grep USB_G_NCM
       - name: ⚙️ Install Python packages
         env:
           PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"

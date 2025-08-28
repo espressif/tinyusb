@@ -46,9 +46,7 @@ void USB_LP_IRQHandler(void) {
 //--------------------------------------------------------------------+
 // MACRO TYPEDEF CONSTANT ENUM
 //--------------------------------------------------------------------+
-#ifdef UART_DEV
 UART_HandleTypeDef UartHandle;
-#endif
 
 void board_init(void) {
   board_clock_init();
@@ -59,6 +57,8 @@ void board_init(void) {
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOE_CLK_ENABLE();
+
+  UART_CLK_EN();
 
 #if CFG_TUSB_OS == OPT_OS_NONE
   // 1ms tick timer
@@ -102,8 +102,6 @@ void board_init(void) {
   HAL_GPIO_Init(BUTTON_PORT, &GPIO_InitStruct);
 
 #ifdef UART_DEV
-  UART_CLK_EN();
-
   // UART
   GPIO_InitStruct.Pin = UART_TX_PIN | UART_RX_PIN;
   GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
@@ -161,7 +159,7 @@ int board_uart_write(void const* buf, int len) {
   HAL_UART_Transmit(&UartHandle, (uint8_t*) (uintptr_t) buf, len, 0xffff);
   return len;
 #else
-  (void) buf; (void) len;
+  (void) buf; (void) len; (void) UartHandle;
   return 0;
 #endif
 }

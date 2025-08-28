@@ -39,6 +39,13 @@
 //--------------------------------------------------------------------+
 // MACRO CONSTANT TYPEDEF
 //--------------------------------------------------------------------+
+
+typedef struct {
+  uint8_t buffer[4];
+  uint8_t index;
+  uint8_t total;
+} midid_stream_t;
+
 typedef struct {
   uint8_t itf_num;
   uint8_t ep_in;
@@ -47,8 +54,8 @@ typedef struct {
   // For Stream read()/write() API
   // Messages are always 4 bytes long, queue them for reading and writing so the
   // callers can use the Stream interface with single-byte read/write calls.
-  midi_driver_stream_t stream_write;
-  midi_driver_stream_t stream_read;
+  midid_stream_t stream_write;
+  midid_stream_t stream_read;
 
   /*------------- From this point, data is not cleared by bus reset -------------*/
   // FIFO
@@ -115,7 +122,7 @@ uint32_t tud_midi_n_available(uint8_t itf, uint8_t cable_num)
   (void) cable_num;
 
   midid_interface_t* midi = &_midid_itf[itf];
-  const midi_driver_stream_t* stream = &midi->stream_read;
+  const midid_stream_t* stream = &midi->stream_read;
 
   // when using with packet API stream total & index are both zero
   return tu_fifo_count(&midi->rx_ff) + (uint8_t) (stream->total - stream->index);
@@ -129,7 +136,7 @@ uint32_t tud_midi_n_stream_read(uint8_t itf, uint8_t cable_num, void* buffer, ui
   uint8_t* buf8 = (uint8_t*) buffer;
 
   midid_interface_t* midi = &_midid_itf[itf];
-  midi_driver_stream_t* stream = &midi->stream_read;
+  midid_stream_t* stream = &midi->stream_read;
 
   uint32_t total_read = 0;
   while( bufsize )
@@ -234,7 +241,7 @@ uint32_t tud_midi_n_stream_write(uint8_t itf, uint8_t cable_num, const uint8_t* 
   midid_interface_t* midi = &_midid_itf[itf];
   TU_VERIFY(midi->ep_in, 0);
 
-  midi_driver_stream_t* stream = &midi->stream_write;
+  midid_stream_t* stream = &midi->stream_write;
 
   uint32_t i = 0;
   while ( (i < bufsize) && (tu_fifo_remaining(&midi->tx_ff) >= 4) )
@@ -422,21 +429,21 @@ void midid_reset(uint8_t rhport)
   }
 }
 
-uint16_t midid_open(uint8_t rhport, const tusb_desc_interface_t* desc_itf, uint16_t max_len) {
-  uint16_t drv_len = 0;
-  uint8_t const * p_desc = (uint8_t const *)desc_itf;
+uint16_t midid_open(uint8_t rhport, const tusb_desc_interface_t* desc_itf, uint16_t max_len)
+{
+  // 1st Interface is Audio Control v1
+  TU_VERIFY(TUSB_CLASS_AUDIO               == desc_itf->bInterfaceClass    &&
+            AUDIO_SUBCLASS_CONTROL         == desc_itf->bInterfaceSubClass &&
+            AUDIO_FUNC_PROTOCOL_CODE_UNDEF == desc_itf->bInterfaceProtocol, 0);
 
-  // 1st Interface is Audio Control v1 (optional)
-  if (TUSB_CLASS_AUDIO               == desc_itf->bInterfaceClass    &&
-      AUDIO_SUBCLASS_CONTROL         == desc_itf->bInterfaceSubClass &&
-      AUDIO_FUNC_PROTOCOL_CODE_UNDEF == desc_itf->bInterfaceProtocol) {
-    drv_len = tu_desc_len(desc_itf);
-    p_desc = tu_desc_next(desc_itf);
-    // Skip Class Specific descriptors
-    while (TUSB_DESC_CS_INTERFACE == tu_desc_type(p_desc) && drv_len <= max_len) {
-      drv_len += tu_desc_len(p_desc);
-      p_desc   = tu_desc_next(p_desc);
-    }
+  uint16_t drv_len = tu_desc_len(desc_itf);
+  const uint8_t* p_desc = tu_desc_next(desc_itf);
+
+  // Skip Class Specific descriptors
+  while ( TUSB_DESC_CS_INTERFACE == tu_desc_type(p_desc) && drv_len <= max_len )
+  {
+    drv_len += tu_desc_len(p_desc);
+    p_desc   = tu_desc_next(p_desc);
   }
 
   // 2nd Interface is MIDI Streaming

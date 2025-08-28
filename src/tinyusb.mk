@@ -21,7 +21,6 @@ TINYUSB_SRC_C += \
   src/host/hub.c \
   src/class/cdc/cdc_host.c \
   src/class/hid/hid_host.c \
-  src/class/midi/midi_host.c \
   src/class/msc/msc_host.c \
   src/class/vendor/vendor_host.c \
   src/typec/usbc.c \

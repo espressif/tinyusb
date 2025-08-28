@@ -14,6 +14,7 @@ CFLAGS += \
 # mcu driver cause following warnings
 CFLAGS += \
   -Wno-error=unused-parameter \
+  -Wno-error=strict-prototypes \
   -Wno-error=cast-qual \
   -Wno-error=incompatible-pointer-types \
 

@@ -61,7 +61,7 @@
   - Define CFG_TUSB_MEM_SECTION=__attribute__((section("NonCacheable")))
 */
 
-// static void BOARD_ConfigMPU(void);
+static void BOARD_ConfigMPU(void);
 
 // needed by fsl_flexspi_nor_boot
 TU_ATTR_USED const uint8_t dcd_data[] = {0x00};
@@ -109,8 +109,8 @@ static void init_usb_phy(uint8_t usb_id) {
 }
 
 void board_init(void) {
-  // BOARD_ConfigMPU();
-  BOARD_InitBootPins();
+  BOARD_ConfigMPU();
+  BOARD_InitPins();
   BOARD_BootClockRUN();
   SystemCoreClockUpdate();
 
@@ -258,7 +258,6 @@ void _exit(int __status) {
 //--------------------------------------------------------------------
 // MPU configuration
 //--------------------------------------------------------------------
-#if 0 // TODO move to per board specific
 #if __CORTEX_M == 7
 static void BOARD_ConfigMPU(void) {
   #if defined(__CC_ARM) || defined(__ARMCC_VERSION)
@@ -456,7 +455,7 @@ static void BOARD_ConfigMPU(void) {
 
 #elif __CORTEX_M == 4
 
-static void BOARD_ConfigMPU(void) {
+void BOARD_ConfigMPU(void) {
   #if defined(__CC_ARM) || defined(__ARMCC_VERSION)
   extern uint32_t Image$$RW_m_ncache$$Base[];
   /* RW_m_ncache_unused is a auxiliary region which is used to get the whole size of noncache section */
@@ -636,5 +635,4 @@ static void BOARD_ConfigMPU(void) {
   /* Now enable the code bus cache. */
   LMEM->PCCCR |= LMEM_PCCCR_ENCACHE_MASK;
 }
-#endif
 #endif

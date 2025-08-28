@@ -34,8 +34,6 @@
 #define EMBEDDED_CLI_IMPL
 #include "embedded_cli.h"
 
-#include "msc_app.h"
-
 
 //--------------------------------------------------------------------+
 // MACRO TYPEDEF CONSTANT ENUM DECLARATION
@@ -69,9 +67,7 @@ bool cli_init(void);
 
 bool msc_app_init(void)
 {
-  for(size_t i=0; i<CFG_TUH_DEVICE_MAX; i++) {
-    _disk_busy[i] = false;
-  }
+  for(size_t i=0; i<CFG_TUH_DEVICE_MAX; i++) _disk_busy[i] = false;
 
   // disable stdout buffered for echoing typing command
   #ifndef __ICCARM__ // TODO IAR doesn't support stream control ?
@@ -85,9 +81,7 @@ bool msc_app_init(void)
 
 void msc_app_task(void)
 {
-  if (!_cli) {
-    return;
-  }
+  if (!_cli) return;
 
   int ch = board_getchar();
   if ( ch > 0 )
@@ -105,7 +99,8 @@ void msc_app_task(void)
 //
 //--------------------------------------------------------------------+
 
-static bool inquiry_complete_cb(uint8_t dev_addr, tuh_msc_complete_data_t const * cb_data) {
+bool inquiry_complete_cb(uint8_t dev_addr, tuh_msc_complete_data_t const * cb_data)
+{
   msc_cbw_t const* cbw = cb_data->cbw;
   msc_csw_t const* csw = cb_data->csw;
 
@@ -299,9 +294,16 @@ void cli_cmd_mkdir(EmbeddedCli *cli, char *args, void *context);
 void cli_cmd_mv(EmbeddedCli *cli, char *args, void *context);
 void cli_cmd_rm(EmbeddedCli *cli, char *args, void *context);
 
-static void cli_write_char(EmbeddedCli *cli, char c) {
+void cli_write_char(EmbeddedCli *cli, char c)
+{
   (void) cli;
   putchar((int) c);
+}
+
+void cli_cmd_unknown(EmbeddedCli *cli, CliCommand *command)
+{
+  (void) cli;
+  printf("%s: command not found\r\n", command->name);
 }
 
 bool cli_init(void)

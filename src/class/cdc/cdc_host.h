@@ -49,22 +49,22 @@
 
 // RX FIFO size
 #ifndef CFG_TUH_CDC_RX_BUFSIZE
-#define CFG_TUH_CDC_RX_BUFSIZE TUH_EPSIZE_BULK_MPS
+#define CFG_TUH_CDC_RX_BUFSIZE USBH_EPSIZE_BULK_MAX
 #endif
 
 // RX Endpoint size
 #ifndef CFG_TUH_CDC_RX_EPSIZE
-#define CFG_TUH_CDC_RX_EPSIZE  TUH_EPSIZE_BULK_MPS
+#define CFG_TUH_CDC_RX_EPSIZE  USBH_EPSIZE_BULK_MAX
 #endif
 
 // TX FIFO size
 #ifndef CFG_TUH_CDC_TX_BUFSIZE
-#define CFG_TUH_CDC_TX_BUFSIZE TUH_EPSIZE_BULK_MPS
+#define CFG_TUH_CDC_TX_BUFSIZE USBH_EPSIZE_BULK_MAX
 #endif
 
 // TX Endpoint size
 #ifndef CFG_TUH_CDC_TX_EPSIZE
-#define CFG_TUH_CDC_TX_EPSIZE  TUH_EPSIZE_BULK_MPS
+#define CFG_TUH_CDC_TX_EPSIZE  USBH_EPSIZE_BULK_MAX
 #endif
 
 //--------------------------------------------------------------------+

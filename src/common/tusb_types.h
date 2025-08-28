@@ -281,8 +281,7 @@ typedef enum {
 // TODO remove
 enum {
   DESC_OFFSET_LEN  = 0,
-  DESC_OFFSET_TYPE = 1,
-  DESC_OFFSET_SUBTYPE = 2
+  DESC_OFFSET_TYPE = 1
 };
 
 enum {
@@ -303,9 +302,9 @@ typedef enum {
 
 enum {
   CONTROL_STAGE_IDLE = 0,
-  CONTROL_STAGE_SETUP, // 1
-  CONTROL_STAGE_DATA,  // 2
-  CONTROL_STAGE_ACK    // 3
+  CONTROL_STAGE_SETUP,
+  CONTROL_STAGE_DATA,
+  CONTROL_STAGE_ACK
 };
 
 enum {
@@ -463,7 +462,7 @@ TU_VERIFY_STATIC( sizeof(tusb_desc_interface_assoc_t) == 8, "size is not correct
 typedef struct TU_ATTR_PACKED {
   uint8_t  bLength         ; ///< Size of this descriptor in bytes
   uint8_t  bDescriptorType ; ///< Descriptor Type
-  uint16_t utf16le[];
+  uint16_t unicode_string[];
 } tusb_desc_string_t;
 
 // USB Binary Device Object Store (BOS)
@@ -571,19 +570,14 @@ TU_ATTR_ALWAYS_INLINE static inline uint8_t const * tu_desc_next(void const* des
   return desc8 + desc8[DESC_OFFSET_LEN];
 }
 
-// get descriptor length
-TU_ATTR_ALWAYS_INLINE static inline uint8_t tu_desc_len(void const* desc) {
-  return ((uint8_t const*) desc)[DESC_OFFSET_LEN];
-}
-
 // get descriptor type
 TU_ATTR_ALWAYS_INLINE static inline uint8_t tu_desc_type(void const* desc) {
   return ((uint8_t const*) desc)[DESC_OFFSET_TYPE];
 }
 
-// get descriptor subtype
-TU_ATTR_ALWAYS_INLINE static inline uint8_t tu_desc_subtype(void const* desc) {
-  return ((uint8_t const*) desc)[DESC_OFFSET_SUBTYPE];
+// get descriptor length
+TU_ATTR_ALWAYS_INLINE static inline uint8_t tu_desc_len(void const* desc) {
+  return ((uint8_t const*) desc)[DESC_OFFSET_LEN];
 }
 
 // find descriptor that match byte1 (type)

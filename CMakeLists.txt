@@ -9,6 +9,9 @@ elseif(${target} STREQUAL "esp32s2")
 elseif(${target} STREQUAL "esp32p4")
     set(tusb_mcu "OPT_MCU_ESP32P4")
     set(tusb_family "esp32px")
+elseif(${target} STREQUAL "esp32h4")
+    set(tusb_mcu "OPT_MCU_ESP32H4")
+    set(tusb_family "esp32sx")
 endif()
 
 set(compile_options

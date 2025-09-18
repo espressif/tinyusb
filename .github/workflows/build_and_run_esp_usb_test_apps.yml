@@ -9,7 +9,7 @@ jobs:
     name: Build
     strategy:
       matrix:
-        idf_ver: ["release-v5.0", "release-v5.1", "release-v5.2", "release-v5.3", "release-v5.4", "latest"]
+        idf_ver: ["release-v5.1", "release-v5.2", "release-v5.3", "release-v5.4", "release-v5.5", "latest"]
     runs-on: ubuntu-latest
     container: espressif/idf:${{ matrix.idf_ver }}
     env:
@@ -26,7 +26,7 @@ jobs:
         shell: bash
         run: |
           . ${IDF_PATH}/export.sh
-          pip install idf-component-manager==1.5.2 idf-build-apps==2.4.3 --upgrade
+          pip install --no-cache-dir idf-component-manager>=2.1.2 idf-build-apps==2.4.3 pyyaml --upgrade
           export PEDANTIC_FLAGS="-DIDF_CI_BUILD -Werror -Werror=deprecated-declarations -Werror=unused-variable -Werror=unused-but-set-variable -Werror=unused-function"
           export EXTRA_CFLAGS="${PEDANTIC_FLAGS} -Wstrict-prototypes"
           export EXTRA_CXXFLAGS="${PEDANTIC_FLAGS}"
@@ -51,7 +51,7 @@ jobs:
     needs: build
     strategy:
       matrix:
-        idf_ver: ["release-v5.0", "release-v5.1", "release-v5.2", "release-v5.3", "release-v5.4", "latest"]
+        idf_ver: ["release-v5.1", "release-v5.2", "release-v5.3", "release-v5.4", "release-v5.5", "latest"]
         idf_target: ["esp32s2"]
         runner_tag: ["usb_device"]
     runs-on: [self-hosted, linux, docker, "${{ matrix.idf_target }}", "${{ matrix.runner_tag }}"]

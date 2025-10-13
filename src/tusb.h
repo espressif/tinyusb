@@ -137,6 +137,12 @@
 //--------------------------------------------------------------------+
 // User API
 //--------------------------------------------------------------------+
+
+// Following macros are defined to be backward compatible
+// tinyusb 0.17.x and 0.18.x
+#define tusb_rhport_teardown(rhport)  tusb_deinit(rhport)
+#define tusb_teardown()               tusb_deinit(0)
+
 #if CFG_TUH_ENABLED || CFG_TUD_ENABLED
 
 // Internal helper for backward compatible with tusb_init(void)

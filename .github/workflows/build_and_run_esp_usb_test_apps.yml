@@ -1,4 +1,8 @@
-name: ESP-USB Test Apps
+# This workflow builds and runs ESP-USB test applications for pull requests.
+# It checks out the latest code from ESP-USB master, builds test apps using Espressif's IDF,
+# uploads artifacts, and runs tests on self-hosted runners for supported targets.
+
+name: ESP-USB Test Apps [master]
 
 on:
   pull_request:
@@ -8,13 +12,19 @@ jobs:
   build:
     name: Build
     strategy:
+      fail-fast: false
       matrix:
         idf_ver: ["release-v5.1", "release-v5.2", "release-v5.3", "release-v5.4", "release-v5.5", "latest"]
     runs-on: ubuntu-latest
     container: espressif/idf:${{ matrix.idf_ver }}
     env:
-      ESP_USB_MANIFEST: ./esp-usb/.build-test-rules.yml
-      ESP_TINYUSB_TEST_APPS: ./esp-usb/device/esp_tinyusb/test_apps
+      IDF_COMP_MAN_VER: "2.4.3"
+      IDF_BUILD_APPS_VER: "2.13.1"
+      # We are cloning esp-usb repo to get the test apps to build, the paths should be configured explicitly
+      ESP_USB_PATH: esp-usb
+      ESP_USB_CONFIG_FILE: esp-usb/.idf_build_apps.toml
+      ESP_USB_MANIFEST: esp-usb/.build-test-rules.yml
+      ESP_TINYUSB_TEST_APPS: esp-usb/device/esp_tinyusb/test_apps
     steps:
       - uses: actions/checkout@v4
         with:
@@ -26,40 +36,45 @@ jobs:
         shell: bash
         run: |
           . ${IDF_PATH}/export.sh
-          pip install --no-cache-dir idf-component-manager>=2.1.2 idf-build-apps==2.4.3 pyyaml --upgrade
+          pip install --no-cache-dir idf-component-manager>=${{ env.IDF_COMP_MAN_VER }} idf-build-apps==${{ env.IDF_BUILD_APPS_VER }} pyyaml --upgrade
           export PEDANTIC_FLAGS="-DIDF_CI_BUILD -Werror -Werror=deprecated-declarations -Werror=unused-variable -Werror=unused-but-set-variable -Werror=unused-function"
           export EXTRA_CFLAGS="${PEDANTIC_FLAGS} -Wstrict-prototypes"
           export EXTRA_CXXFLAGS="${PEDANTIC_FLAGS}"
           python .github/ci/override_managed_component.py tinyusb . ${{ env.ESP_TINYUSB_TEST_APPS }}/*/
-          idf-build-apps find --path ${{ env.ESP_TINYUSB_TEST_APPS }}/ --recursive --target esp32s2 --manifest-file ${{ env.ESP_USB_MANIFEST }}
-          idf-build-apps build --path ${{ env.ESP_TINYUSB_TEST_APPS }}/ --recursive --target esp32s2 --manifest-file ${{ env.ESP_USB_MANIFEST }}
+          idf-build-apps find --config-file ${{ env.ESP_USB_CONFIG_FILE }} -p ${{ env.ESP_TINYUSB_TEST_APPS }} -t all --manifest-files ${{ env.ESP_USB_MANIFEST }} --manifest-rootpath ${{ env.ESP_USB_PATH }}
+          idf-build-apps build --config-file ${{ env.ESP_USB_CONFIG_FILE }} -p ${{ env.ESP_TINYUSB_TEST_APPS }} -t all --manifest-files ${{ env.ESP_USB_MANIFEST }} --manifest-rootpath ${{ env.ESP_USB_PATH }}
       - uses: actions/upload-artifact@v4
         with:
-          name: usb_test_app_bin_${{ matrix.idf_ver }}
+          # Test apps builds live under the repository workspace, we use workspace-relative glob
+          name: usb_device_test_app_bin_${{ matrix.idf_ver }}
           path: |
-            ${{env.ESP_TINYUSB_TEST_APPS}}/**/build/bootloader/bootloader.bin
-            ${{env.ESP_TINYUSB_TEST_APPS}}/**/build/partition_table/partition-table.bin
-            ${{env.ESP_TINYUSB_TEST_APPS}}/**/build/test_app_*.bin
-            ${{env.ESP_TINYUSB_TEST_APPS}}/**/build/test_app_*.elf
-            ${{env.ESP_TINYUSB_TEST_APPS}}/**/build/flasher_args.json
-            ${{env.ESP_TINYUSB_TEST_APPS}}/**/build/config/sdkconfig.json
+            **/build_esp*/bootloader/bootloader.bin
+            **/build_esp*/partition_table/partition-table.bin
+            **/build_esp*/test_app_*.bin
+            **/build_esp*/test_app_*.elf
+            **/build_esp*/flasher_args.json
+            **/build_esp*/config/sdkconfig.json
           if-no-files-found: error
 
   run-target:
     name: Run
+    # Disable the job in forks
     if: ${{ github.repository_owner == 'espressif' }}
     needs: build
     strategy:
+      fail-fast: false
       matrix:
         idf_ver: ["release-v5.1", "release-v5.2", "release-v5.3", "release-v5.4", "release-v5.5", "latest"]
         idf_target: ["esp32s2"]
+        sdkconfig: ["default"]
         runner_tag: ["usb_device"]
     runs-on: [self-hosted, linux, docker, "${{ matrix.idf_target }}", "${{ matrix.runner_tag }}"]
     container:
       image: python:3.11-bookworm
       options: --privileged --device-cgroup-rule="c 188:* rmw" --device-cgroup-rule="c 166:* rmw"
     env:
-      ESP_TINYUSB_TEST_APPS: ./esp-usb/device/esp_tinyusb/test_apps
+      ESP_USB_ROOT: esp-usb
+      ESP_USB_TEST_APPS_PATH: esp-usb/device/esp_tinyusb/test_apps
     steps:
       - uses: actions/checkout@v4
       - name: Clone esp-usb repository
@@ -75,7 +90,9 @@ jobs:
         run: pip install --only-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf pyserial pyusb
       - uses: actions/download-artifact@v4
         with:
-          name: usb_test_app_bin_${{ matrix.idf_ver }}
-          path: ${{env.ESP_TINYUSB_TEST_APPS}}
-      - name: Run USB Test App on target
-        run: pytest ${{env.ESP_TINYUSB_TEST_APPS}} --embedded-services esp,idf --target=${{ matrix.idf_target }} -m ${{ matrix.runner_tag }}
+          # No need to set the path manually.
+          # The test apps were built after cloning the esp-usb repo,
+          # and the build artifacts already have the correct folder structure.
+          name: usb_device_test_app_bin_${{ matrix.idf_ver }}
+      - name: Run on target
+        run: pytest ${{ env.ESP_USB_TEST_APPS_PATH }} --target=${{ matrix.idf_target }} -m ${{ matrix.runner_tag }} --build-dir=build_${{ matrix.idf_target }}_${{ matrix.sdkconfig }}

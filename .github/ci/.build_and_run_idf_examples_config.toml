@@ -1,0 +1,22 @@
+# Config file for build_and_run_idf_examples.yml workflow
+
+# This file contains configuration settings for the idf-build-apps tool,
+# which is used to build and run example applications in the workflow.
+# If you change the 'build_dir' value, make sure to update the corresponding
+# Run step in the workflow, as it will need to reference the new build directory.
+
+paths = [
+    "${IDF_PATH}/examples/peripherals/usb/device",     # ESP-IDF USB Device examples path
+]
+
+exclude = [
+    "${IDF_PATH}/examples/peripherals/usb/device/cherryusb_serial_device", # Exclude cherryusb-based device examples
+]
+
+recursive = true
+manifest_file = "${IDF_PATH}/examples/peripherals/.build-test-rules.yml"
+check_warnings = true
+target = "all"
+
+# Build related options (build_dir uses '@t' for target and '@w' for wildcard pattern (sdkconfig usually)
+build_dir = "build_@t_@w"

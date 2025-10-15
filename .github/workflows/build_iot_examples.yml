@@ -27,7 +27,7 @@ jobs:
         shell: bash
         run: |
           . ${IDF_PATH}/export.sh
-          pip install --no-cache-dir idf-component-manager>=2.1.2 idf-build-apps pyyaml --upgrade
+          pip install --no-cache-dir idf-component-manager>=2.1.2 idf-build-apps==2.13.1 pyyaml --upgrade
           python .github/ci/override_managed_component.py tinyusb . ${{ env.EXAMPLE_PATH }}/
-          idf-build-apps find --paths ${{ env.EXAMPLE_PATH }} --target all --manifest-file ${{ env.MANIFEST_PATH }} --manifest-rootpath ${{ env.ESP_IOT_PATH }}
-          idf-build-apps build --paths ${{ env.EXAMPLE_PATH }} --target all --manifest-file ${{ env.MANIFEST_PATH }} --manifest-rootpath ${{ env.ESP_IOT_PATH }}
+          idf-build-apps find --paths ${{ env.EXAMPLE_PATH }} --manifest-file ${{ env.MANIFEST_PATH }} --manifest-rootpath ${{ env.ESP_IOT_PATH }}
+          idf-build-apps build --paths ${{ env.EXAMPLE_PATH }} --manifest-file ${{ env.MANIFEST_PATH }} --manifest-rootpath ${{ env.ESP_IOT_PATH }}

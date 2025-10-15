@@ -12,41 +12,35 @@ jobs:
       fail-fast: false
     runs-on: ubuntu-latest
     container: espressif/idf:${{ matrix.idf_ver }}
+    env:
+      CONFIG_PATH: ${{ github.workspace }}/.github/ci/.idf_build_examples_config.toml
     steps:
       - uses: actions/checkout@v4
       - name: Install Python dependencies
         shell: bash
         run: |
           . ${IDF_PATH}/export.sh
-          pip install --no-cache-dir idf-component-manager>=2.1.2 idf-build-apps pyyaml --upgrade
-      - name: Build Network USB related examples
-        shell: bash
-        run: |
-          . ${IDF_PATH}/export.sh
-          export EXAMPLES_PATH="${IDF_PATH}/examples/network/sta2eth"
-          export MANIFEST_FILE="${IDF_PATH}/examples/network/.build-test-rules.yml"
-          idf-build-apps find --path ${EXAMPLES_PATH}/ --target esp32s2 --manifest-file ${MANIFEST_FILE}
-          idf-build-apps build --path ${EXAMPLES_PATH}/ --target esp32s2 --manifest-file ${MANIFEST_FILE}
+          pip install --no-cache-dir idf-component-manager>=2.1.2 idf-build-apps==2.13.1 pyyaml --upgrade
       - name: Build USB Device examples
         shell: bash
         run: |
           . ${IDF_PATH}/export.sh
-          export EXAMPLES_PATH="${IDF_PATH}/examples/peripherals/usb/device"
-          export MANIFEST_FILE="${IDF_PATH}/examples/peripherals/.build-test-rules.yml"
-          python .github/ci/override_managed_component.py tinyusb . ${EXAMPLES_PATH}/tusb_*
-          idf-build-apps find --path ${EXAMPLES_PATH}/ --recursive --target esp32s2 --manifest-file ${MANIFEST_FILE}
-          idf-build-apps build --path ${EXAMPLES_PATH}/ --recursive --target esp32s2 --manifest-file ${MANIFEST_FILE}
+          python .github/ci/override_managed_component.py tinyusb . ${IDF_PATH}/examples/peripherals/usb/device/tusb_*
+          python .github/ci/override_managed_component.py tinyusb . ${IDF_PATH}/examples/network/sta2eth
+          cd ${IDF_PATH}
+          idf-build-apps find --config-file ${CONFIG_PATH}
+          idf-build-apps build --config-file ${CONFIG_PATH}
       - uses: actions/upload-artifact@v4
         with:
           # We upload only the USB Device example binaries to run them on the target
           name: usb_device_tusb_apps_bin_${{ matrix.idf_ver }}
           path: |
-              /opt/esp/idf/examples/peripherals/usb/device/tusb_*/build/bootloader/bootloader.bin
-              /opt/esp/idf/examples/peripherals/usb/device/tusb_*/build/partition_table/partition-table.bin
-              /opt/esp/idf/examples/peripherals/usb/device/tusb_*/build/tusb_*.bin
-              /opt/esp/idf/examples/peripherals/usb/device/tusb_*/build/tusb_*.elf
-              /opt/esp/idf/examples/peripherals/usb/device/tusb_*/build/flasher_args.json
-              /opt/esp/idf/examples/peripherals/usb/device/tusb_*/build/config/sdkconfig.json
+              /opt/esp/idf/examples/peripherals/usb/device/tusb_*/build_*/bootloader/bootloader.bin
+              /opt/esp/idf/examples/peripherals/usb/device/tusb_*/build_*/partition_table/partition-table.bin
+              /opt/esp/idf/examples/peripherals/usb/device/tusb_*/build_*/tusb_*.bin
+              /opt/esp/idf/examples/peripherals/usb/device/tusb_*/build_*/tusb_*.elf
+              /opt/esp/idf/examples/peripherals/usb/device/tusb_*/build_*/flasher_args.json
+              /opt/esp/idf/examples/peripherals/usb/device/tusb_*/build_*/config/sdkconfig.json
           if-no-files-found: error
   run-target:
     name: Run USB Device examples

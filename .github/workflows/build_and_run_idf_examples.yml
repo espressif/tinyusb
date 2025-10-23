@@ -6,62 +6,76 @@ on:
 
 jobs:
   build:
+    name: Build
     strategy:
+      fail-fast: false
       matrix:
         idf_ver: ["release-v5.1", "release-v5.2", "release-v5.3", "release-v5.4", "release-v5.5", "latest"]
-      fail-fast: false
     runs-on: ubuntu-latest
     container: espressif/idf:${{ matrix.idf_ver }}
+    env:
+      IDF_COMP_MAN_VER: "2.4.3"
+      IDF_BUILD_APPS_VER: "2.13.1"
+      CONFIG_PATH: ${{ github.workspace }}/.github/ci/.build_and_run_idf_examples_config.toml
     steps:
       - uses: actions/checkout@v4
       - name: Install Python dependencies
         shell: bash
         run: |
           . ${IDF_PATH}/export.sh
-          pip install --no-cache-dir idf-component-manager>=2.1.2 idf-build-apps==2.4.3 pyyaml --upgrade
+          pip install --no-cache-dir idf-component-manager>=${{ env.IDF_COMP_MAN_VER }} idf-build-apps==${{ env.IDF_BUILD_APPS_VER }} pyyaml --upgrade
       - name: Build Network USB related examples
         shell: bash
         run: |
           . ${IDF_PATH}/export.sh
+          # Hint: To build network example we just use default config and network build rules provided by IDF
           export EXAMPLES_PATH="${IDF_PATH}/examples/network/sta2eth"
           export MANIFEST_FILE="${IDF_PATH}/examples/network/.build-test-rules.yml"
-          idf-build-apps find --path ${EXAMPLES_PATH}/ --target esp32s2 --manifest-file ${MANIFEST_FILE}
-          idf-build-apps build --path ${EXAMPLES_PATH}/ --target esp32s2 --manifest-file ${MANIFEST_FILE}
+          python .github/ci/override_managed_component.py tinyusb . ${EXAMPLES_PATH}
+          idf-build-apps find -p ${EXAMPLES_PATH} -t esp32s2 --manifest-files ${MANIFEST_FILE} --manifest-rootpath ${IDF_PATH}
+          idf-build-apps build -p ${EXAMPLES_PATH} -t esp32s2 --manifest-files ${MANIFEST_FILE} --manifest-rootpath ${IDF_PATH}
       - name: Build USB Device examples
         shell: bash
         run: |
           . ${IDF_PATH}/export.sh
-          export EXAMPLES_PATH="${IDF_PATH}/examples/peripherals/usb/device"
-          export MANIFEST_FILE="${IDF_PATH}/examples/peripherals/.build-test-rules.yml"
-          python .github/ci/override_managed_component.py tinyusb . ${EXAMPLES_PATH}/tusb_*
-          idf-build-apps find --path ${EXAMPLES_PATH}/ --recursive --target esp32s2 --manifest-file ${MANIFEST_FILE}
-          idf-build-apps build --path ${EXAMPLES_PATH}/ --recursive --target esp32s2 --manifest-file ${MANIFEST_FILE}
+          python .github/ci/override_managed_component.py tinyusb . ${IDF_PATH}/examples/peripherals/usb/device/tusb_*
+          idf-build-apps find --config-file ${CONFIG_PATH} --manifest-rootpath ${IDF_PATH}
+          idf-build-apps build --config-file ${CONFIG_PATH} --manifest-rootpath ${IDF_PATH}
       - uses: actions/upload-artifact@v4
+        env:
+          IDF_ROOT: "/opt/esp/idf"
         with:
-          # We upload only the USB Device example binaries to run them on the target
-          name: usb_device_tusb_apps_bin_${{ matrix.idf_ver }}
+          # We upload only USB Device example binaries to run them on the target
+          name: usb_device_examples_bin_${{ matrix.idf_ver }}
           path: |
-              /opt/esp/idf/examples/peripherals/usb/device/tusb_*/build/bootloader/bootloader.bin
-              /opt/esp/idf/examples/peripherals/usb/device/tusb_*/build/partition_table/partition-table.bin
-              /opt/esp/idf/examples/peripherals/usb/device/tusb_*/build/tusb_*.bin
-              /opt/esp/idf/examples/peripherals/usb/device/tusb_*/build/tusb_*.elf
-              /opt/esp/idf/examples/peripherals/usb/device/tusb_*/build/flasher_args.json
-              /opt/esp/idf/examples/peripherals/usb/device/tusb_*/build/config/sdkconfig.json
+              ${{ env.IDF_ROOT }}/**/build_esp*/bootloader/bootloader.bin
+              ${{ env.IDF_ROOT }}/**/build_esp*/partition_table/partition-table.bin
+              ${{ env.IDF_ROOT }}/**/build_esp*/tusb_*.bin
+              ${{ env.IDF_ROOT }}/**/build_esp*/tusb_*.elf
+              ${{ env.IDF_ROOT }}/**/build_esp*/flasher_args.json
+              ${{ env.IDF_ROOT }}/**/build_esp*/config/sdkconfig.json
           if-no-files-found: error
   run-target:
-    name: Run USB Device examples
+    name: Run
+    # Disable the job in forks
     if: ${{ github.repository_owner == 'espressif' }}
     needs: build
     strategy:
       fail-fast: false
       matrix:
+        # Run esp-idf examples, starting from v5.3
         idf_ver: ["release-v5.3", "release-v5.4", "release-v5.5" , "latest"]
         idf_target: ["esp32s2"]
         runner_tag: ["usb_device"]
     runs-on: [self-hosted, linux, docker, "${{ matrix.idf_target }}", "${{ matrix.runner_tag }}"]
     container:
+      # We run on espressif/idf image as we need the code of examples to be present to run pytest
       image: espressif/idf:${{ matrix.idf_ver }}
       options: --privileged --device-cgroup-rule="c 188:* rmw" --device-cgroup-rule="c 166:* rmw"
+    env:
+      # We do not use ${IDF_PATH} here, because it is not available during download of artifacts step
+      IDF_ROOT: "/opt/esp/idf"
+      IDF_EXAMPLES_PATH: "${IDF_PATH}/examples/peripherals/usb/device"
     steps:
       - name: ⚙️ Install System tools
         run: |
@@ -71,16 +85,15 @@ jobs:
         env:
           PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
         run: |
-          cd ${IDF_PATH}
-          . ./export.sh
+          . ${IDF_PATH}/export.sh
           pip install --no-cache-dir --only-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-jtag pytest-embedded-idf pyserial pyusb python-gitlab minio idf-build-apps idf_ci pytest_ignore_test_results pytest-timeout netifaces
       - uses: actions/download-artifact@v4
         with:
-          name: usb_device_tusb_apps_bin_${{ matrix.idf_ver }}
-          path: /opt/esp/idf/examples/peripherals/usb/device
-      - name: Run USB Test App on target
+          # Need to set the path manually.
+          # The examples were built on a system files, which are not under the repository.
+          name: usb_device_examples_bin_${{ matrix.idf_ver }}
+          path: ${{ env.IDF_ROOT }}
+      - name: Run on target
         run: |
-          cd ${IDF_PATH}
-          . ./export.sh
-          export EXAMPLES_PATH="${IDF_PATH}/examples/peripherals/usb/device"
-          pytest ${EXAMPLES_PATH} --target ${{ matrix.idf_target }} -m ${{ matrix.runner_tag }} --ignore-result-cases=*ncm_example
+          . ${IDF_PATH}/export.sh
+          pytest ${{ env.IDF_EXAMPLES_PATH }} --target ${{ matrix.idf_target }} -m ${{ matrix.runner_tag }} --ignore-result-cases=*ncm_example --build-dir=build_${{ matrix.idf_target }}

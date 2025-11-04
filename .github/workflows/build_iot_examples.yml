@@ -9,13 +9,13 @@ jobs:
     name: Build
     strategy:
       matrix:
-        idf_ver: ["release-v5.3", "release-v5.4", "release-v5.5", "latest"]
+        idf_ver: ["release-v5.3", "release-v5.4", "release-v5.5", "release-v6.0", "latest"]
         name: ["usb_uart_bridge"]
     runs-on: ubuntu-latest
     container: espressif/idf:${{ matrix.idf_ver }}
     env:
       IDF_COMP_MAN_VER: "2.4.3"
-      IDF_BUILD_APPS_VER: "2.13.1"
+      IDF_BUILD_APPS_VER: "2.13.3"
       TARGET_PATH: esp-iot-solution
       TARGET_MANIFEST_PATH: esp-iot-solution/examples/.build-rules.yml
       TARGET_EXAMPLES_PATH: esp-iot-solution/examples/usb/device/${{ matrix.name }}

@@ -17,6 +17,7 @@ recursive = true
 manifest_file = "${IDF_PATH}/examples/peripherals/.build-test-rules.yml"
 check_warnings = true
 target = "all"
+enable_preview_targets = true
 
 # Build related options (build_dir uses '@t' for target and '@w' for wildcard pattern (sdkconfig usually)
 build_dir = "build_@t_@w"

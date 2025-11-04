@@ -10,12 +10,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        idf_ver: ["release-v5.1", "release-v5.2", "release-v5.3", "release-v5.4", "release-v5.5", "latest"]
+        idf_ver: ["release-v5.1", "release-v5.2", "release-v5.3", "release-v5.4", "release-v5.5", "release-v6.0", "latest"]
     runs-on: ubuntu-latest
     container: espressif/idf:${{ matrix.idf_ver }}
     env:
       IDF_COMP_MAN_VER: "2.4.3"
-      IDF_BUILD_APPS_VER: "2.13.1"
+      IDF_BUILD_APPS_VER: "2.13.3"
       CONFIG_PATH: ${{ github.workspace }}/.github/ci/.build_and_run_idf_examples_config.toml
     steps:
       - uses: actions/checkout@v4
@@ -63,7 +63,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        idf_ver: ["release-v5.1", "release-v5.2", "release-v5.3", "release-v5.4", "release-v5.5" , "latest"]
+        idf_ver: ["release-v5.1", "release-v5.2", "release-v5.3", "release-v5.4", "release-v5.5", "release-v6.0", "latest"]
         idf_target: ["esp32s2", "esp32p4"]
         runner_tag: ["usb_device"]
         exclude:

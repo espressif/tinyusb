@@ -24,6 +24,7 @@ jobs:
       ESP_USB_PATH: esp-usb
       ESP_USB_CONFIG_FILE: esp-usb/.idf_build_apps.toml
       ESP_USB_MANIFEST: esp-usb/.build-test-rules.yml
+      ESP_USB_IGNORE_WARNING_FILE: esp-usb/.ignore_build_warnings.txt
       ESP_TINYUSB_TEST_APPS: esp-usb/device/esp_tinyusb/test_apps
     steps:
       - uses: actions/checkout@v4
@@ -42,7 +43,7 @@ jobs:
           export EXTRA_CXXFLAGS="${PEDANTIC_FLAGS}"
           python .github/ci/override_managed_component.py tinyusb . ${{ env.ESP_TINYUSB_TEST_APPS }}/*/
           idf-build-apps find --config-file ${{ env.ESP_USB_CONFIG_FILE }} -p ${{ env.ESP_TINYUSB_TEST_APPS }} -t all --manifest-files ${{ env.ESP_USB_MANIFEST }} --manifest-rootpath ${{ env.ESP_USB_PATH }}
-          idf-build-apps build --config-file ${{ env.ESP_USB_CONFIG_FILE }} -p ${{ env.ESP_TINYUSB_TEST_APPS }} -t all --manifest-files ${{ env.ESP_USB_MANIFEST }} --manifest-rootpath ${{ env.ESP_USB_PATH }}
+          idf-build-apps build --config-file ${{ env.ESP_USB_CONFIG_FILE }} -p ${{ env.ESP_TINYUSB_TEST_APPS }} -t all --manifest-files ${{ env.ESP_USB_MANIFEST }} --manifest-rootpath ${{ env.ESP_USB_PATH }} --ignore-warning-files ${{ env.ESP_USB_IGNORE_WARNING_FILE }}
       - uses: actions/upload-artifact@v4
         with:
           # Test apps builds live under the repository workspace, we use workspace-relative glob

@@ -89,9 +89,7 @@ static void init_tinyusb(void) {
   };
   tusb_init(BOARD_TUH_RHPORT, &host_init);
 
-  if (board_init_after_tusb) {
-    board_init_after_tusb();
-  }
+  board_init_after_tusb();
 }
 
 int main(void) {
@@ -268,7 +266,7 @@ void led_blinking_task(void* param) {
 
 #define BLINKY_STACK_SIZE   configMINIMAL_STACK_SIZE
 
-#if TUSB_MCU_VENDOR_ESPRESSIF
+#ifdef ESP_PLATFORM
   #define USB_STACK_SIZE     4096
 #else
   // Increase stack size when debug log is enabled
@@ -285,7 +283,7 @@ StackType_t  usb_stack[USB_STACK_SIZE];
 StaticTask_t usb_taskdef;
 #endif
 
-#if TUSB_MCU_VENDOR_ESPRESSIF
+#ifdef ESP_PLATFORM
 void app_main(void) {
   main();
 }
@@ -308,8 +306,8 @@ void init_freertos_task(void) {
   xTaskCreate(usb_host_task, "usbh", USB_STACK_SIZE, NULL, configMAX_PRIORITIES - 1, NULL);
 #endif
 
-  // skip starting scheduler (and return) for ESP32-S2 or ESP32-S3
-#if !TUSB_MCU_VENDOR_ESPRESSIF
+  // only start scheduler for non-espressif mcu
+#ifndef ESP_PLATFORM
   vTaskStartScheduler();
 #endif
 }

@@ -5,8 +5,18 @@ repository: "https://github.com/espressif/tinyusb.git"
 issues: "https://github.com/hathach/tinyusb/issues"
 dependencies:
   idf: '>=5.0' # IDF 4.x contains TinyUSB as submodule
+files:
+  exclude:
+    - "docs/**/*"
+    - "tools/**/*"
+    - "lib/embedded-cli/**/*"
+    - "lib/fatfs/**/*"
+    - "lib/SEGGER_RTT/**/*"
 targets:
   - esp32s2
   - esp32s3
   - esp32p4
   - esp32h4
+tags:
+  - usb
+  - usb_device

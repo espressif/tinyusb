@@ -30,7 +30,7 @@
 #include "bsp/board_api.h"
 #include "tusb.h"
 
-#if TUSB_MCU_VENDOR_ESPRESSIF
+#ifdef ESP_PLATFORM
   #define USBH_STACK_SIZE     4096
 #else
   // Increase stack size when debug log is enabled
@@ -86,15 +86,15 @@ int main(void) {
 
   xTimerStart(blinky_tm, 0);
 
-  // skip starting scheduler (and return) for ESP32-S2 or ESP32-S3
-#if !TUSB_MCU_VENDOR_ESPRESSIF
+  // only start scheduler for non-espressif mcu
+#ifndef ESP_PLATFORM
   vTaskStartScheduler();
 #endif
 
   return 0;
 }
 
-#if TUSB_MCU_VENDOR_ESPRESSIF
+#ifdef ESP_PLATFORM
 void app_main(void) {
   main();
 }
@@ -116,9 +116,7 @@ static void usb_host_task(void *param) {
     vTaskSuspend(NULL);
   }
 
-  if (board_init_after_tusb) {
-    board_init_after_tusb();
-  }
+  board_init_after_tusb();
 
 #if CFG_TUH_ENABLED && CFG_TUH_MAX3421
   // FeatherWing MAX3421E use MAX3421E's GPIO0 for VBUS enable

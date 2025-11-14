@@ -26,18 +26,18 @@ def override_with_local_component(component, local_path, app):
     manager = ManifestManager(app_path / 'main', 'app')
     if '/' not in component:
         # Prepend with default namespace
-        component_with_namespace = 'espressif/' + component
+        component = 'espressif/' + component
 
     try:
         manifest_tree = yaml.safe_load(Path(manager.path).read_text())
-        manifest_tree['dependencies'][component_with_namespace] = {
+        manifest_tree['dependencies'][component] = {
             'version': '*',
             'override_path': str(absolute_local_path)
         }
         with open(manager.path, 'w') as f:
             yaml.dump(manifest_tree, f, allow_unicode=True, Dumper=yaml.SafeDumper)
     except KeyError:
-        print('[Error] {} app does not depend on {}'.format(app, component_with_namespace))
+        print('[Error] {} app does not depend on {}'.format(app, component))
         raise KeyError
 
 def override_with_local_component_all(component, local_path, apps):

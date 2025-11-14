@@ -12,14 +12,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Remove unneeded files
-        shell: bash
-        run: rm -rf docs tools lib/embedded-cli lib/fatfs lib/SEGGER_RTT
-
       - name: Upload components to component service
-        uses: espressif/upload-components-ci-action@v1
+        uses: espressif/upload-components-ci-action@v2
         with:
-          name: "tinyusb"
+          components: "tinyusb: ."
           version: ${{ github.ref_name }}
           namespace: "espressif"
           api_token: ${{ secrets.IDF_COMPONENT_API_TOKEN }}

@@ -60,17 +60,29 @@ int sys_read(int fhdl, char *buf, size_t count) {
   int rd = (int) SEGGER_RTT_Read(0, buf, count);
   return (rd > 0) ? rd : -1;
 }
-
 #endif
 
 #elif defined(LOGGER_SWO)
+
+#define ITM_BASE 0xE0000000
+#define ITM_STIM0 (*((volatile uint8_t*)(ITM_BASE + 0)))
+#define ITM_TER *((volatile uint32_t*)(ITM_BASE + 0xE00))
+#define ITM_TCR *((volatile uint32_t*)(ITM_BASE + 0xE80))
+
+#define ITM_TCR_ITMENA (1 << 0)
+
 // Logging with SWO for ARM Cortex-M
 int sys_write (int fhdl, const char *buf, size_t count) {
   (void) fhdl;
   uint8_t const* buf8 = (uint8_t const*) buf;
 
-  for(size_t i=0; i<count; i++) {
-    ITM_SendChar(buf8[i]);
+  if ((ITM_TCR & ITM_TCR_ITMENA) && (ITM_TER & 1ul)) {
+    for(size_t i=0; i < count; i++) {
+      while (!(ITM_STIM0 & 1ul)) {
+        asm("nop");
+      }
+      ITM_STIM0 = buf8[i];
+    }
   }
 
   return (int) count;
@@ -129,6 +141,26 @@ __strong_reference(stdin, stderr);
 #endif
 
 //--------------------------------------------------------------------+
+// Weak board API (to be optionally implemented by board)
+//--------------------------------------------------------------------+
+TU_ATTR_WEAK size_t board_get_unique_id(uint8_t id[], size_t max_len) {
+  (void) max_len;
+  // fixed serial string is 01234567889ABCDEF
+  uint32_t* uid32 = (uint32_t*) (uintptr_t)id;
+  uid32[0] = 0x67452301;
+  uid32[1] = 0xEFCDAB89;
+  return 8;
+}
+
+TU_ATTR_WEAK void board_init_after_tusb(void) {
+  // nothing to do
+}
+
+TU_ATTR_WEAK void board_reset_to_bootloader(void) {
+  // not implemented
+}
+
+//--------------------------------------------------------------------+
 // Board API
 //--------------------------------------------------------------------+
 int board_getchar(void) {
@@ -136,6 +168,9 @@ int board_getchar(void) {
   return (sys_read(0, &c, 1) > 0) ? (int) c : (-1);
 }
 
+void board_putchar(int c) {
+  sys_write(0, (const char*)&c, 1);
+}
 
 uint32_t tusb_time_millis_api(void) {
   return board_millis();
@@ -144,7 +179,7 @@ uint32_t tusb_time_millis_api(void) {
 //--------------------------------------------------------------------
 // FreeRTOS hooks
 //--------------------------------------------------------------------
-#if CFG_TUSB_OS == OPT_OS_FREERTOS && !TUSB_MCU_VENDOR_ESPRESSIF
+#if CFG_TUSB_OS == OPT_OS_FREERTOS && !defined(ESP_PLATFORM)
 #include "FreeRTOS.h"
 #include "task.h"
 
@@ -225,6 +260,5 @@ void vApplicationSetupTimerInterrupt(void) {
   CMT.CMSTR0.BIT.STR0 = 1;
 }
 #endif
-
 
 #endif

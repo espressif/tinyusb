@@ -67,6 +67,9 @@ jobs:
         idf_target: ["esp32s2", "esp32p4"]
         runner_tag: ["usb_device"]
         exclude:
+          # Exclude all "latest" runs for esp32p4 till the transition to ECO5 will be done
+          - idf_ver: "latest"
+            idf_target: "esp32p4"
           # Exclude esp32p4 for releases before IDF 5.3 for all runner tags (esp32p4 support starts in IDF 5.3)
           - idf_ver: "release-v5.1"
             idf_target: "esp32p4"

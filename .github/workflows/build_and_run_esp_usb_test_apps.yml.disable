@@ -2,7 +2,7 @@
 # It checks out the latest code from ESP-USB master, builds test apps using Espressif's IDF,
 # uploads artifacts, and runs tests on self-hosted runners for supported targets.
 
-name: ESP-USB Test Apps [master]
+name: ESP-USB Device Test Apps [master]
 
 on:
   pull_request:

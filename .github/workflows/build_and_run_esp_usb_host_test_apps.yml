@@ -44,7 +44,7 @@ jobs:
           export EXTRA_CXXFLAGS="${PEDANTIC_FLAGS}"
           export ENV_VAR_USB_COMP_MANAGED=yes
 
-          python .github/ci/override_managed_component.py tinyusb . ${{ env.ESP_HOST_TEST_APPS }}/*/
+          python .github/ci/override_managed_component.py tinyusb . ${{ env.ESP_HOST_TEST_APPS }}/*
           idf-build-apps find --config-file ${{ env.ESP_USB_CONFIG_FILE }} -p ${{ env.ESP_HOST_TEST_APPS }} -t all --manifest-files ${{ env.ESP_USB_MANIFEST }} --manifest-rootpath ${{ env.ESP_USB_PATH }}
           idf-build-apps build --config-file ${{ env.ESP_USB_CONFIG_FILE }} -p ${{ env.ESP_HOST_TEST_APPS }} -t all --manifest-files ${{ env.ESP_USB_MANIFEST }} --manifest-rootpath ${{ env.ESP_USB_PATH }} --ignore-warning-files ${{ env.ESP_USB_IGNORE_WARNING_FILE }}
       - uses: actions/upload-artifact@v4

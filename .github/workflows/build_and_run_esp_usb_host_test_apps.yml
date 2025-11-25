@@ -1,0 +1,76 @@
+# This workflow builds and runs ESP-USB Host test applications for pull requests.
+# It checks out the latest code from ESP-USB master, builds the USB Host Library and Classes test applications using Espressif's IDF,
+# uploads artifacts, and runs tests on self-hosted runners for supported targets.
+
+name: ESP-USB Host Test Apps
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+jobs:
+  build:
+    name: Build
+    strategy:
+      fail-fast: false
+      matrix:
+        # TODO: increase the coverage, for now - latest only
+        idf_ver: ["latest"]
+    runs-on: ubuntu-latest
+    container: espressif/idf:${{ matrix.idf_ver }}
+    env:
+      IDF_COMP_MAN_VER: "2.4.3"
+      IDF_BUILD_APPS_VER: "2.13.3"
+      # We are cloning esp-usb repo to get the test apps to build, the paths should be configured explicitly
+      ESP_USB_PATH: esp-usb
+      ESP_USB_CONFIG_FILE: esp-usb/.idf_build_apps.toml
+      ESP_USB_MANIFEST: esp-usb/.build-test-rules.yml
+      ESP_USB_IGNORE_WARNING_FILE: esp-usb/.ignore_build_warnings.txt
+      ESP_HOST_CLASS_TEST_APP_PATH: esp-usb/host/class/*/*/test_app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+      - name: Clone esp-usb repository
+        run: |
+            git clone https://github.com/espressif/esp-usb.git
+      - name: Build
+        shell: bash
+        run: |
+          . ${IDF_PATH}/export.sh
+          pip install --no-cache-dir idf-component-manager>=${{ env.IDF_COMP_MAN_VER }} idf-build-apps==${{ env.IDF_BUILD_APPS_VER }} pyyaml --upgrade
+          export PEDANTIC_FLAGS="-DIDF_CI_BUILD -Werror -Werror=deprecated-declarations -Werror=unused-variable -Werror=unused-but-set-variable -Werror=unused-function"
+          export EXTRA_CFLAGS="${PEDANTIC_FLAGS} -Wstrict-prototypes"
+          export EXTRA_CXXFLAGS="${PEDANTIC_FLAGS}"
+          export ENV_VAR_USB_COMP_MANAGED=yes
+
+          python .github/ci/override_managed_component.py tinyusb . ${{ env.ESP_HOST_CLASS_TEST_APP_PATH }}
+
+          idf-build-apps find \
+            --config-file ${{ env.ESP_USB_CONFIG_FILE }} \
+            -p ${{ env.ESP_HOST_CLASS_TEST_APP_PATH }} \
+            -t all \
+            --manifest-files ${{ env.ESP_USB_MANIFEST }} \
+            --manifest-rootpath ${{ env.ESP_USB_PATH }} \
+            --disable-targets linux
+
+          idf-build-apps build \
+            --config-file ${{ env.ESP_USB_CONFIG_FILE }} \
+            -p ${{ env.ESP_HOST_CLASS_TEST_APP_PATH }} \
+            -t all \
+            --manifest-files ${{ env.ESP_USB_MANIFEST }} \
+            --manifest-rootpath ${{ env.ESP_USB_PATH }} \
+            --ignore-warning-files ${{ env.ESP_USB_IGNORE_WARNING_FILE }} \
+            --disable-targets linux
+      - uses: actions/upload-artifact@v4
+        with:
+          # Test apps builds live under the repository workspace, we use workspace-relative glob
+          name: usb_host_test_app_bin_${{ matrix.idf_ver }}
+          path: |
+            **/build_esp*/bootloader/bootloader.bin
+            **/build_esp*/partition_table/partition-table.bin
+            **/build_esp*/test_app_*.bin
+            **/build_esp*/test_app_*.elf
+            **/build_esp*/flasher_args.json
+            **/build_esp*/config/sdkconfig.json
+          if-no-files-found: error

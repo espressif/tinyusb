@@ -52,6 +52,7 @@ extern char const* const tu_str_xfer_result[];
 void tu_print_mem(void const *buf, uint32_t count, uint8_t indent);
 
 #ifdef CFG_TUSB_DEBUG_PRINTF
+  #include <stdio.h>
   extern int CFG_TUSB_DEBUG_PRINTF(const char *format, ...);
   #define tu_printf    CFG_TUSB_DEBUG_PRINTF
 #else

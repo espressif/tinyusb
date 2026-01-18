@@ -52,6 +52,7 @@ extern char const* const tu_str_xfer_result[];
 void tu_print_mem(void const *buf, uint32_t count, uint8_t indent);
 
 #ifdef CFG_TUSB_DEBUG_PRINTF
+  #include <stdio.h>
   extern int CFG_TUSB_DEBUG_PRINTF(const char *format, ...);
   #define tu_printf    CFG_TUSB_DEBUG_PRINTF
 #else
@@ -117,12 +118,16 @@ static inline const char* tu_lookup_find(tu_lookup_table_t const* p_table, uint3
     }
   }
 
-  // not found return the key value in hex
+  #ifndef CFG_TUSB_DEBUG_PRINTF
+  // not found return the key value in hex if no custom printf is defined
   static char not_found[11];
-  if (snprintf(not_found, sizeof(not_found), "0x%08lX", (unsigned long) key) <= 0) {
+  if (snprintf(not_found, sizeof(not_found), "0x%08lX", (unsigned long)key) <= 0) {
     not_found[0] = 0;
   }
   return not_found;
+  #else
+  return "NotFound";
+  #endif
 }
 
 #endif // CFG_TUSB_DEBUG

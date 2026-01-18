@@ -157,10 +157,12 @@ target_link_libraries(tinyusb_bsp INTERFACE
 # tinyusb_additions will hold our extra settings for examples
 add_library(tinyusb_additions INTERFACE)
 
+if (PICO_PLATFORM STREQUAL rp2040)
 target_compile_definitions(tinyusb_additions INTERFACE
 	PICO_RP2040_USB_DEVICE_ENUMERATION_FIX=1
 	PICO_RP2040_USB_DEVICE_UFRAME_FIX=1
-)
+	)
+endif ()
 
 if(LOGGER STREQUAL "RTT" OR LOGGER STREQUAL "rtt")
 	target_compile_definitions(tinyusb_additions INTERFACE
@@ -222,6 +224,8 @@ function(family_add_default_example_warnings TARGET)
   endif()
 endfunction()
 
+
+# TODO merge with family_configure_common from family_support.cmake
 function(family_configure_target TARGET RTOS)
 	if (RTOS STREQUAL noos OR RTOS STREQUAL "")
 		set(RTOS_SUFFIX "")
@@ -239,10 +243,16 @@ function(family_configure_target TARGET RTOS)
 
 	pico_add_extra_outputs(${TARGET})
 	pico_enable_stdio_uart(${TARGET} 1)
+
+  target_link_options(${TARGET} PUBLIC "LINKER:-Map=$<TARGET_FILE:${TARGET}>.map")
 	target_link_libraries(${TARGET} PUBLIC pico_stdlib tinyusb_board${RTOS_SUFFIX} tinyusb_additions)
 
   family_flash_openocd(${TARGET})
 	family_flash_jlink(${TARGET})
+
+  # Generate linkermap target and post build. LINKERMAP_OPTION can be set with -D to change default options
+	family_add_bloaty(${TARGET})
+  family_add_linkermap(${TARGET})
 endfunction()
 
 
@@ -289,7 +299,7 @@ function(family_configure_host_example TARGET RTOS)
 		# Pico-PIO-USB does not compile with all pico-sdk supported compilers, so check before enabling it
 		is_compiler_supported_by_pico_pio_usb(PICO_PIO_USB_COMPILER_SUPPORTED)
 		if (PICO_PIO_USB_COMPILER_SUPPORTED)
-			family_add_pico_pio_usb(${PROJECT})
+			family_add_pico_pio_usb(${TARGET})
 		endif()
 	endif()
 

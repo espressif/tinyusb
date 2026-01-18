@@ -14,6 +14,9 @@ deps_mandatory = {
     'lib/lwip': ['https://github.com/lwip-tcpip/lwip.git',
                  '159e31b689577dbf69cf0683bbaffbd71fa5ee10',
                  'all'],
+    'tools/linkermap': ['https://github.com/hathach/linkermap.git',
+                        '8e1f440fa15c567aceb5aa0d14f6d18c329cc67f',
+                        'all'],
     'tools/uf2': ['https://github.com/microsoft/uf2.git',
                   'c594542b2faa01cc33a2b97c9fbebc38549df80a',
                   'all'],
@@ -57,7 +60,7 @@ deps_optional = {
                            'lpc11 lpc13 lpc15 lpc17 lpc18 lpc40 lpc43'],
     'hw/mcu/nxp/mcux-sdk': ['https://github.com/nxp-mcuxpresso/mcux-sdk',
                             'a1bdae309a14ec95a4f64a96d3315a4f89c397c6',
-                            'kinetis_k kinetis_k32l2 kinetis_kl lpc51 lpc54 lpc55 mcx imxrt'],
+                            'kinetis_k kinetis_k32l2 kinetis_kl lpc51 lpc54 lpc55 mcx rw61x imxrt'],
     'hw/mcu/raspberry_pi/Pico-PIO-USB': ['https://github.com/sekigon-gonnoc/Pico-PIO-USB.git',
                                          '675543bcc9baa8170f868ab7ba316d418dbcf41f',
                                          'rp2040'],
@@ -141,7 +144,7 @@ deps_optional = {
                                      'stm32h7'],
     'hw/mcu/st/stm32-tcpp0203': ['https://github.com/STMicroelectronics/stm32-tcpp0203.git',
                                  '9918655bff176ac3046ccf378b5c7bbbc6a38d15',
-                                 'stm32h7rs stm32n6'],
+                                 'stm32h5 stm32h7rs stm32n6'],
     'hw/mcu/st/stm32c0xx_hal_driver': ['https://github.com/STMicroelectronics/stm32c0xx_hal_driver.git',
                                        'c283b143bef6bdaacf64240ee6f15eb61dad6125',
                                        'stm32c0'],
@@ -206,7 +209,7 @@ deps_optional = {
                                        '9442fbb71f855ff2e64fbf662b7726beba511a24',
                                        'stm32wba'],
     'hw/mcu/ti': ['https://github.com/hathach/ti_driver.git',
-                  '143ed6cc20a7615d042b03b21e070197d473e6e5',
+                  '083944907e7d08fcb1f614b47598ce45935b8da1',
                   'msp430 msp432e4 tm4c'],
     'hw/mcu/wch/ch32v103': ['https://github.com/openwch/ch32v103.git',
                             '7578cae0b21f86dd053a1f781b2fc6ab99d0ec17',
@@ -241,12 +244,18 @@ deps_optional = {
     'hw/mcu/artery/at32f413': ['https://github.com/ArteryTek/AT32F413_Firmware_Library.git',
                                'f6fe62dfec9fd40c5b63d92fc5ef2c2b5e77a450',
                                'at32f413'],
+    'hw/mcu/artery/at32f45x': ['https://github.com/ArteryTek/AT32F45x_Firmware_Library.git',
+                               '3d4a1b38be8ebac292e2350ca53bc4bfa4430233',
+                               'at32f45x'],
+    'hw/mcu/hpmicro/hpm_sdk': ['https://github.com/hpmicro/hpm_sdk',
+                               '8d2af741ecc4aaa82d7ee395dc1ce25d7070c3ff',
+                               'hpmicro'],
     'lib/CMSIS_5': ['https://github.com/ARM-software/CMSIS_5.git',
                     '2b7495b8535bdcb306dac29b9ded4cfb679d7e5c',
-                    'imxrt kinetis_k32l2 kinetis_kl lpc51 lpc54 lpc55 mcx mm32 msp432e4 nrf saml2x '
+                    'imxrt kinetis_k32l2 kinetis_kl lpc51 lpc54 lpc55 mcx rw61x mm32 msp432e4 nrf saml2x '
                     'lpc11 lpc13 lpc15 lpc17 lpc18 lpc40 lpc43 '
                     'stm32c0 stm32f0 stm32f1 stm32f2 stm32f3 stm32f4 stm32f7 stm32g0 stm32g4 stm32h5 '
-                    'stm32h7 stm32h7rs stm32l0 stm32l1 stm32l4 stm32l5 stm32u0 stm32u5 stm32wb stm32wba'
+                    'stm32h7 stm32h7rs stm32l0 stm32l1 stm32l4 stm32l5 stm32u0 stm32u5 stm32wb stm32wba '
                     'sam3x samd11 samd21 samd51 samd5x_e5x same5x same7x saml2x samg '
                     'tm4c '],
     'lib/CMSIS_6': ['https://github.com/ARM-software/CMSIS_6.git',
@@ -343,7 +352,7 @@ def main():
 
         for f in families:
             for d in deps_optional:
-                if d not in deps and f in deps_optional[d][2]:
+                if d not in deps and f in deps_optional[d][2].split():
                     deps.append(d)
 
     if print_only:

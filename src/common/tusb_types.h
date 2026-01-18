@@ -323,6 +323,11 @@ typedef struct {
   tusb_speed_t speed;
 } tusb_rhport_init_t;
 
+typedef struct {
+  uint16_t len;
+  uint8_t *buffer;
+} tusb_buffer_t;
+
 //--------------------------------------------------------------------+
 // USB Descriptors
 //--------------------------------------------------------------------+
@@ -549,7 +554,7 @@ TU_ATTR_ALWAYS_INLINE static inline uint8_t tu_edpt_number(uint8_t addr) {
 }
 
 TU_ATTR_ALWAYS_INLINE static inline uint8_t tu_edpt_addr(uint8_t num, uint8_t dir) {
-  return (uint8_t) (num | (dir == TUSB_DIR_IN ? TUSB_DIR_IN_MASK : 0u));
+  return (uint8_t) (num | (dir == (uint8_t)TUSB_DIR_IN ? (uint8_t)TUSB_DIR_IN_MASK : 0u));
 }
 
 TU_ATTR_ALWAYS_INLINE static inline uint16_t tu_edpt_packet_size(tusb_desc_endpoint_t const* desc_ep) {

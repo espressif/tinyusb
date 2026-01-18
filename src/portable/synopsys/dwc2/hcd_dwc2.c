@@ -821,7 +821,7 @@ static void channel_xfer_in_retry(dwc2_regs_t* dwc2, uint8_t ch_id, uint32_t hci
   }
 }
 
-#if CFG_TUSB_DEBUG
+#if CFG_TUSB_DEBUG && 0
 TU_ATTR_ALWAYS_INLINE static inline void print_hcint(uint32_t hcint) {
   const char* str[] = {
     "XFRC", "HALTED", "AHBERR", "STALL",
@@ -856,7 +856,7 @@ static void handle_rxflvl_irq(uint8_t rhport) {
       hcd_endpoint_t* edpt = &_hcd_data.edpt[xfer->ep_id];
 
       if (byte_count > 0) {
-        dfifo_read_packet(dwc2, edpt->buffer + xfer->xferred_bytes, byte_count);
+        tu_hwfifo_read(dwc2->fifo[0], edpt->buffer + xfer->xferred_bytes, byte_count, NULL);
         xfer->xferred_bytes += byte_count;
         xfer->fifo_bytes = byte_count;
       }
@@ -907,7 +907,7 @@ static bool handle_txfifo_empty(dwc2_regs_t* dwc2, bool is_periodic) {
           return true;
         }
 
-        dfifo_write_packet(dwc2, ch_id, edpt->buffer + xfer->fifo_bytes, xact_bytes);
+        tu_hwfifo_write(dwc2->fifo[ch_id], edpt->buffer + xfer->fifo_bytes, xact_bytes, NULL);
         xfer->fifo_bytes += xact_bytes;
       }
     }

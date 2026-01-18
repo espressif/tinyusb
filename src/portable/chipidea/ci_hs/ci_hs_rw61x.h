@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2019 Ha Thach (tinyusb.org)
+ * Copyright (c) 2021, Ha Thach (tinyusb.org)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,40 +24,25 @@
  * This file is part of the TinyUSB stack.
  */
 
-/** \ingroup CDC_RNDIS
- * \defgroup CDC_RNSID_Host Host
- *  @{ */
+#ifndef _CI_HS_RW61X_H_
+#define _CI_HS_RW61X_H_
 
-#ifndef TUSB_CDC_RNDIS_HOST_H_
-#define TUSB_CDC_RNDIS_HOST_H_
+#include "fsl_device_registers.h"
 
-#include "common/tusb_common.h"
-#include "host/usbh.h"
-#include "cdc_rndis.h"
+static const ci_hs_controller_t _ci_controller[] = {
+    {.reg_base = USBOTG_BASE, .irqnum = USB_IRQn}
+};
 
-#ifdef __cplusplus
- extern "C" {
+TU_ATTR_ALWAYS_INLINE static inline ci_hs_regs_t* CI_HS_REG(uint8_t port) {
+  (void) port;
+  return ((ci_hs_regs_t*) _ci_controller[0].reg_base);
+}
+
+#define CI_DCD_INT_ENABLE(_p)   do { (void) _p; NVIC_EnableIRQ (_ci_controller[0].irqnum); } while (0)
+#define CI_DCD_INT_DISABLE(_p)  do { (void) _p; NVIC_DisableIRQ(_ci_controller[0].irqnum); } while (0)
+
+#define CI_HCD_INT_ENABLE(_p)   NVIC_EnableIRQ (_ci_controller[_p].irqnum)
+#define CI_HCD_INT_DISABLE(_p)  NVIC_DisableIRQ(_ci_controller[_p].irqnum)
+
+
 #endif
-
-//--------------------------------------------------------------------+
-// INTERNAL RNDIS-CDC Driver API
-//--------------------------------------------------------------------+
-typedef struct {
-  OSAL_SEM_DEF(semaphore_notification);
-  osal_semaphore_handle_t sem_notification_hdl;  // used to wait on notification pipe
-  uint32_t max_xfer_size; // got from device's msg initialize complete
-  uint8_t mac_address[6];
-}rndish_data_t;
-
-void rndish_init(void);
-bool rndish_open_subtask(uint8_t dev_addr, cdch_data_t *p_cdc);
-void rndish_xfer_isr(cdch_data_t *p_cdc, pipe_handle_t pipe_hdl, xfer_result_t event, uint32_t xferred_bytes);
-void rndish_close(uint8_t dev_addr);
-
-#ifdef __cplusplus
- }
-#endif
-
-#endif /* TUSB_CDC_RNDIS_HOST_H_ */
-
-/** @} */

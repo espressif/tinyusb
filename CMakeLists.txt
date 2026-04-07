@@ -18,8 +18,6 @@ set(compile_options
     "-DCFG_TUSB_MCU=${tusb_mcu}"
     )
 
-idf_component_get_property(freertos_include freertos ORIG_INCLUDE_PATH)
-
 set(includes_private
     "src/"
     "src/device"
@@ -28,8 +26,6 @@ set(includes_private
 
 set(includes_public
     "src/"
-    # The FreeRTOS API include convention in tinyusb is different from esp-idf
-    "${freertos_include}"
     )
 
 set(srcs
@@ -72,6 +68,7 @@ idf_component_register(SRCS ${srcs}
                        INCLUDE_DIRS ${includes_public}
                        PRIV_INCLUDE_DIRS ${includes_private}
                        PRIV_REQUIRES  ${requirements_private}
+                       REQUIRES freertos
                        )
 
 target_compile_options(${COMPONENT_LIB} PUBLIC ${compile_options})

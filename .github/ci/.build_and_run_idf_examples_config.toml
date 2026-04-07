@@ -6,18 +6,25 @@
 # Run step in the workflow, as it will need to reference the new build directory.
 
 paths = [
-    "${IDF_PATH}/examples/peripherals/usb/device",     # ESP-IDF USB Device examples path
+    "examples/peripherals/usb/device",     # ESP-IDF USB Device examples path
 ]
 
+# Exclude cherryusb-based device examples
 exclude = [
-    "${IDF_PATH}/examples/peripherals/usb/device/cherryusb_serial_device", # Exclude cherryusb-based device examples
+    "examples/peripherals/usb/device/cherryusb_serial_device",
 ]
 
 recursive = true
-manifest_file = "${IDF_PATH}/examples/peripherals/.build-test-rules.yml"
 check_warnings = true
 target = "all"
 enable_preview_targets = true
 
 # Build related options (build_dir uses '@t' for target and '@w' for wildcard pattern (sdkconfig usually)
 build_dir = "build_@t_@w"
+
+# config rules
+config_rules = [
+    'sdkconfig.ci=default',
+    'sdkconfig.ci.*=',
+    '=default',
+]

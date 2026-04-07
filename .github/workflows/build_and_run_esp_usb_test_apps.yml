@@ -8,17 +8,23 @@ on:
   pull_request:
     types: [opened, reopened, synchronize]
 
+# Cancel previous runs of this workflow for the same PR when a new commit is pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: Build
     strategy:
       fail-fast: false
       matrix:
-        idf_ver: ["release-v5.1", "release-v5.2", "release-v5.3", "release-v5.4", "release-v5.5", "release-v6.0", "latest"]
+        idf_ver: ["release-v5.2", "release-v5.3", "release-v5.4", "release-v5.5", "release-v6.0", "latest"]
     runs-on: ubuntu-latest
     container: espressif/idf:${{ matrix.idf_ver }}
+    permissions:
+      pull-requests: read
     env:
-      IDF_COMP_MAN_VER: "2.4.3"
       IDF_BUILD_APPS_VER: "2.13.3"
       # We are cloning esp-usb repo to get the test apps to build, the paths should be configured explicitly
       ESP_USB_PATH: esp-usb
@@ -27,7 +33,7 @@ jobs:
       ESP_USB_IGNORE_WARNING_FILE: esp-usb/.ignore_build_warnings.txt
       ESP_TINYUSB_TEST_APPS: esp-usb/device/esp_tinyusb/test_apps
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: 'true'
       - name: Clone esp-usb repository
@@ -37,14 +43,14 @@ jobs:
         shell: bash
         run: |
           . ${IDF_PATH}/export.sh
-          pip install --no-cache-dir idf-component-manager>=${{ env.IDF_COMP_MAN_VER }} idf-build-apps==${{ env.IDF_BUILD_APPS_VER }} pyyaml --upgrade
+          pip install --no-cache-dir idf-build-apps==${{ env.IDF_BUILD_APPS_VER }} pyyaml --upgrade
           export PEDANTIC_FLAGS="-DIDF_CI_BUILD -Werror -Werror=deprecated-declarations -Werror=unused-variable -Werror=unused-but-set-variable -Werror=unused-function"
           export EXTRA_CFLAGS="${PEDANTIC_FLAGS} -Wstrict-prototypes"
           export EXTRA_CXXFLAGS="${PEDANTIC_FLAGS}"
           python .github/ci/override_managed_component.py tinyusb . ${{ env.ESP_TINYUSB_TEST_APPS }}/*/
           idf-build-apps find --config-file ${{ env.ESP_USB_CONFIG_FILE }} -p ${{ env.ESP_TINYUSB_TEST_APPS }} -t all --manifest-files ${{ env.ESP_USB_MANIFEST }} --manifest-rootpath ${{ env.ESP_USB_PATH }}
           idf-build-apps build --config-file ${{ env.ESP_USB_CONFIG_FILE }} -p ${{ env.ESP_TINYUSB_TEST_APPS }} -t all --manifest-files ${{ env.ESP_USB_MANIFEST }} --manifest-rootpath ${{ env.ESP_USB_PATH }} --ignore-warning-files ${{ env.ESP_USB_IGNORE_WARNING_FILE }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           # Test apps builds live under the repository workspace, we use workspace-relative glob
           name: usb_device_test_app_bin_${{ matrix.idf_ver }}
@@ -65,25 +71,36 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        idf_ver: ["release-v5.1", "release-v5.2", "release-v5.3", "release-v5.4", "release-v5.5", "release-v6.0", "latest"]
+        idf_ver: ["release-v5.2", "release-v5.3", "release-v5.4", "release-v5.5", "release-v6.0", "latest"]
         idf_target: ["esp32s2", "esp32p4"]
         sdkconfig: ["default"]
         runner_tag: ["usb_device"]
+        eco_ver: ["eco_default", "eco4"]
         exclude:
           # Exclude esp32p4 for releases before IDF 5.3 for all runner tags (esp32p4 support starts in IDF 5.3)
-          - idf_ver: "release-v5.1"
-            idf_target: "esp32p4"
           - idf_ver: "release-v5.2"
             idf_target: "esp32p4"
-    runs-on: [self-hosted, linux, docker, "${{ matrix.idf_target }}", "${{ matrix.runner_tag }}"]
+          # Exclude eco4 version for esp32s2
+          - idf_target: "esp32s2"
+            eco_ver: "eco4"
+          # esp32p4 ECO6 support starts in IDF 5.5
+          - idf_target: "esp32p4"
+            eco_ver: "eco_default"
+            idf_ver: "release-v5.4"
+          - idf_target: "esp32p4"
+            eco_ver: "eco_default"
+            idf_ver: "release-v5.3"
+    runs-on: [self-hosted, linux, docker, "${{ matrix.idf_target }}", "${{ matrix.runner_tag }}", "${{ matrix.eco_ver }}"]
     container:
       image: python:3.11-bookworm
       options: --privileged --device-cgroup-rule="c 188:* rmw" --device-cgroup-rule="c 166:* rmw"
+      volumes:
+        - /dev/bus/usb:/dev/bus/usb
     env:
       ESP_USB_ROOT: esp-usb
       ESP_USB_TEST_APPS_PATH: esp-usb/device/esp_tinyusb/test_apps
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Clone esp-usb repository
         run: |
           git clone https://github.com/espressif/esp-usb.git
@@ -94,12 +111,26 @@ jobs:
       - name: Install Python packages
         env:
           PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
-        run: pip install --only-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf pyserial pyusb
-      - uses: actions/download-artifact@v4
+        run: pip install --only-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf pyserial pyusb pytest-rerunfailures idf-ci
+      - uses: actions/download-artifact@v7
         with:
           # No need to set the path manually.
           # The test apps were built after cloning the esp-usb repo,
           # and the build artifacts already have the correct folder structure.
           name: usb_device_test_app_bin_${{ matrix.idf_ver }}
       - name: Run on target
-        run: pytest ${{ env.ESP_USB_TEST_APPS_PATH }} --target=${{ matrix.idf_target }} -m ${{ matrix.runner_tag }} --build-dir=build_${{ matrix.idf_target }}_${{ matrix.sdkconfig }}
+        run: |
+
+          # Set runner marker argument
+          MARKER_ARG="-m=${{ matrix.runner_tag }}"
+
+          if [ "${{ matrix.idf_target }}" = "esp32p4" ]; then
+            if [ "${{ matrix.eco_ver }}" = "eco_default" ]; then
+              MARKER_ARG="$MARKER_ARG and ${{ matrix.eco_ver }}"
+            else
+              MARKER_ARG="$MARKER_ARG and ${{ matrix.idf_target }}_${{ matrix.eco_ver }}"
+            fi
+          fi
+
+          echo "Running pytest with marker: $MARKER_ARG"
+          pytest ${{ env.ESP_USB_TEST_APPS_PATH }} --target=${{ matrix.idf_target }} "$MARKER_ARG" --build-dir=build_${{ matrix.idf_target }}_

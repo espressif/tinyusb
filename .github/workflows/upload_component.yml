@@ -10,7 +10,7 @@ jobs:
   upload_components:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Upload components to component service
         uses: espressif/upload-components-ci-action@v2

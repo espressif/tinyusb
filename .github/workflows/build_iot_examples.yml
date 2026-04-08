@@ -13,14 +13,15 @@ jobs:
         name: ["usb_uart_bridge"]
     runs-on: ubuntu-latest
     container: espressif/idf:${{ matrix.idf_ver }}
+    permissions:
+      pull-requests: read
     env:
-      IDF_COMP_MAN_VER: "2.4.3"
       IDF_BUILD_APPS_VER: "2.13.3"
       TARGET_PATH: esp-iot-solution
       TARGET_MANIFEST_PATH: esp-iot-solution/examples/.build-rules.yml
       TARGET_EXAMPLES_PATH: esp-iot-solution/examples/usb/device/${{ matrix.name }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: 'true'
       - name: Clone esp-iot-solution repository
@@ -30,7 +31,7 @@ jobs:
         shell: bash
         run: |
           . ${IDF_PATH}/export.sh
-          pip install --no-cache-dir idf-component-manager>=${{ env.IDF_COMP_MAN_VER }} idf-build-apps==${{ env.IDF_BUILD_APPS_VER }} pyyaml --upgrade
+          pip install --no-cache-dir idf-build-apps==${{ env.IDF_BUILD_APPS_VER }} pyyaml --upgrade
           python .github/ci/override_managed_component.py tinyusb . ${{ env.TARGET_EXAMPLES_PATH }}/
           idf-build-apps find -p ${{ env.TARGET_EXAMPLES_PATH }} -t all --manifest-file ${{ env.TARGET_MANIFEST_PATH }} --manifest-rootpath ${{ env.TARGET_PATH }}
           idf-build-apps build -p ${{ env.TARGET_EXAMPLES_PATH }} -t all --manifest-file ${{ env.TARGET_MANIFEST_PATH }} --manifest-rootpath ${{ env.TARGET_PATH }}

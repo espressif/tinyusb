@@ -4,26 +4,33 @@ on:
   pull_request:
     types: [opened, reopened, synchronize]
 
+# Cancel previous runs of this workflow for the same PR when a new commit is pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: Build
     strategy:
       fail-fast: false
       matrix:
-        idf_ver: ["release-v5.1", "release-v5.2", "release-v5.3", "release-v5.4", "release-v5.5", "release-v6.0", "latest"]
+        idf_ver: ["release-v5.2", "release-v5.3", "release-v5.4", "release-v5.5", "release-v6.0", "latest"]
     runs-on: ubuntu-latest
     container: espressif/idf:${{ matrix.idf_ver }}
+    permissions:
+      pull-requests: read
     env:
-      IDF_COMP_MAN_VER: "2.4.3"
       IDF_BUILD_APPS_VER: "2.13.3"
       CONFIG_PATH: ${{ github.workspace }}/.github/ci/.build_and_run_idf_examples_config.toml
+      MANIFEST_PATH: ${{ github.workspace }}/.github/ci/.idf-build-examples-rules.yml
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install Python dependencies
         shell: bash
         run: |
           . ${IDF_PATH}/export.sh
-          pip install --no-cache-dir idf-component-manager>=${{ env.IDF_COMP_MAN_VER }} idf-build-apps==${{ env.IDF_BUILD_APPS_VER }} pyyaml --upgrade
+          pip install --no-cache-dir idf-build-apps==${{ env.IDF_BUILD_APPS_VER }} pyyaml --upgrade
       - name: Build Network USB related examples
         shell: bash
         run: |
@@ -39,9 +46,10 @@ jobs:
         run: |
           . ${IDF_PATH}/export.sh
           python .github/ci/override_managed_component.py tinyusb . ${IDF_PATH}/examples/peripherals/usb/device/tusb_*
-          idf-build-apps find --config-file ${CONFIG_PATH} --manifest-rootpath ${IDF_PATH}
-          idf-build-apps build --config-file ${CONFIG_PATH} --manifest-rootpath ${IDF_PATH}
-      - uses: actions/upload-artifact@v4
+          cd ${IDF_PATH}
+          idf-build-apps find --config-file ${CONFIG_PATH} --manifest-file ${MANIFEST_PATH}
+          idf-build-apps build --config-file ${CONFIG_PATH} --manifest-file ${MANIFEST_PATH}
+      - uses: actions/upload-artifact@v6
         env:
           IDF_ROOT: "/opt/esp/idf"
         with:
@@ -63,19 +71,41 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        idf_ver: ["release-v5.1", "release-v5.2", "release-v5.3", "release-v5.4", "release-v5.5", "release-v6.0", "latest"]
+        idf_ver: ["release-v5.2", "release-v5.3", "release-v5.4", "release-v5.5", "release-v6.0", "latest"]
         idf_target: ["esp32s2", "esp32p4"]
         runner_tag: ["usb_device"]
+        eco_ver: ["eco_default", "eco4"]
         exclude:
           # Exclude all "latest" runs for esp32p4 till the transition to ECO5 will be done
           - idf_ver: "latest"
             idf_target: "esp32p4"
           # Exclude esp32p4 for releases before IDF 5.3 for all runner tags (esp32p4 support starts in IDF 5.3)
-          - idf_ver: "release-v5.1"
-            idf_target: "esp32p4"
           - idf_ver: "release-v5.2"
             idf_target: "esp32p4"
-    runs-on: [self-hosted, linux, docker, "${{ matrix.idf_target }}", "${{ matrix.runner_tag }}"]
+          # Exclude eco4 version for esp32s2
+          - idf_target: "esp32s2"
+            eco_ver: "eco4"
+          # Exclude eco_default for older IDF versions, esp32p4 ECO6 support starts in IDF 5.5
+          - idf_target: "esp32p4"
+            eco_ver: "eco_default"
+            idf_ver: "release-v5.2"
+          - idf_target: "esp32p4"
+            eco_ver: "eco_default"
+            idf_ver: "release-v5.3"
+          - idf_target: "esp32p4"
+            eco_ver: "eco_default"
+            idf_ver: "release-v5.4"
+          # Exclude eco4 for newer IDF versions, esp32p4 ECO6 is default in IDF 5.5 and later
+          - idf_target: "esp32p4"
+            eco_ver: "eco4"
+            idf_ver: "release-v5.5"
+          - idf_target: "esp32p4"
+            eco_ver: "eco4"
+            idf_ver: "release-v6.0"
+          - idf_target: "esp32p4"
+            eco_ver: "eco4"
+            idf_ver: "latest"
+    runs-on: [self-hosted, linux, docker, "${{ matrix.idf_target }}", "${{ matrix.runner_tag }}", "${{ matrix.eco_ver }}"]
     container:
       # We run on espressif/idf image as we need the code of examples to be present to run pytest
       image: espressif/idf:${{ matrix.idf_ver }}
@@ -94,8 +124,8 @@ jobs:
           PIP_EXTRA_INDEX_URL: "https://dl.espressif.com/pypi/"
         run: |
           . ${IDF_PATH}/export.sh
-          pip install --no-cache-dir --only-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-jtag pytest-embedded-idf pyserial pyusb python-gitlab minio idf-build-apps idf_ci pytest_ignore_test_results pytest-timeout netifaces
-      - uses: actions/download-artifact@v4
+          pip install --no-cache-dir --only-binary cryptography pytest-embedded pytest-embedded-serial-esp pytest-embedded-idf pyserial pyusb idf-ci pytest-ignore-test-results pytest-timeout netifaces
+      - uses: actions/download-artifact@v7
         with:
           # Need to set the path manually.
           # The examples were built on a system files, which are not under the repository.

@@ -7,6 +7,7 @@
 
 paths = [
     "examples/peripherals/usb/device",     # ESP-IDF USB Device examples path
+    "examples/network/sta2eth",            # Networking example using USB Device
 ]
 
 # Exclude cherryusb-based device examples

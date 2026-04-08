@@ -6,6 +6,8 @@ on:
 
 jobs:
   build:
+    # Run the workflow, only with BUILD_AND_TEST_EXTERNAL_EXAMPLES PR label
+    if: contains(github.event.pull_request.labels.*.name, 'BUILD_AND_TEST_EXTERNAL_EXAMPLES')
     name: Build
     strategy:
       matrix:

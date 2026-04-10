@@ -488,7 +488,7 @@ void dcd_connect(uint8_t rhport) {
   (void) rhport;
   dwc2_regs_t* dwc2 = DWC2_REG(rhport);
 
-#ifdef TUP_USBIP_DWC2_ESP32
+#if defined(TUP_USBIP_DWC2_ESP32) && !TU_CHECK_MCU(OPT_MCU_ESP32S31)
   usb_wrap_otg_conf_reg_t conf = USB_WRAP.otg_conf;
   conf.pad_pull_override = 0;
   conf.dp_pullup = 0;
@@ -505,7 +505,7 @@ void dcd_disconnect(uint8_t rhport) {
   (void) rhport;
   dwc2_regs_t* dwc2 = DWC2_REG(rhport);
 
-#ifdef TUP_USBIP_DWC2_ESP32
+#if defined(TUP_USBIP_DWC2_ESP32) && !TU_CHECK_MCU(OPT_MCU_ESP32S31)
   usb_wrap_otg_conf_reg_t conf = USB_WRAP.otg_conf;
   conf.pad_pull_override = 1;
   conf.dp_pullup = 0;

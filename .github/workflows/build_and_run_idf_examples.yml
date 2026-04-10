@@ -58,8 +58,8 @@ jobs:
           . ${IDF_PATH}/export.sh
           cd ${IDF_PATH}
 
-          idf-build-apps find --config-file ${CONFIG_PATH} --manifest-file ${MANIFEST_PATH} --disable-targets esp32s31
-          idf-build-apps build --config-file ${CONFIG_PATH} --manifest-file ${MANIFEST_PATH} --disable-targets esp32s31
+          idf-build-apps find --config-file ${CONFIG_PATH} --manifest-file ${MANIFEST_PATH}
+          idf-build-apps build --config-file ${CONFIG_PATH} --manifest-file ${MANIFEST_PATH}
       - uses: actions/upload-artifact@v6
         with:
           # We upload only USB Device example binaries to run them on the target

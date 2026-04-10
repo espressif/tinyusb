@@ -28,9 +28,6 @@ jobs:
       IDF_BUILD_APPS_VER: "2.13.3"
       # We are cloning esp-usb repo to get the test apps to build, the paths should be configured explicitly
       ESP_USB_PATH: esp-usb
-      ESP_USB_CONFIG_FILE: esp-usb/.idf_build_apps.toml
-      ESP_USB_MANIFEST: esp-usb/.build-test-rules.yml
-      ESP_USB_IGNORE_WARNING_FILE: esp-usb/.ignore_build_warnings.txt
       ESP_TINYUSB_TEST_APPS: esp-usb/device/esp_tinyusb/test_apps
     steps:
       - uses: actions/checkout@v5
@@ -38,18 +35,26 @@ jobs:
           submodules: 'true'
       - name: Clone esp-usb repository
         run: |
-            git clone https://github.com/espressif/esp-usb.git
+            git clone https://github.com/espressif/esp-usb.git || {
+              echo "git clone of esp-usb repository failed"
+              exit 1
+            }
       - name: Build
         shell: bash
         run: |
+
           . ${IDF_PATH}/export.sh
           pip install --no-cache-dir idf-build-apps==${{ env.IDF_BUILD_APPS_VER }} pyyaml --upgrade
           export PEDANTIC_FLAGS="-DIDF_CI_BUILD -Werror -Werror=deprecated-declarations -Werror=unused-variable -Werror=unused-but-set-variable -Werror=unused-function"
           export EXTRA_CFLAGS="${PEDANTIC_FLAGS} -Wstrict-prototypes"
           export EXTRA_CXXFLAGS="${PEDANTIC_FLAGS}"
           python .github/ci/override_managed_component.py tinyusb . ${{ env.ESP_TINYUSB_TEST_APPS }}/*/
-          idf-build-apps find --config-file ${{ env.ESP_USB_CONFIG_FILE }} -p ${{ env.ESP_TINYUSB_TEST_APPS }} -t all --manifest-files ${{ env.ESP_USB_MANIFEST }} --manifest-rootpath ${{ env.ESP_USB_PATH }}
-          idf-build-apps build --config-file ${{ env.ESP_USB_CONFIG_FILE }} -p ${{ env.ESP_TINYUSB_TEST_APPS }} -t all --manifest-files ${{ env.ESP_USB_MANIFEST }} --manifest-rootpath ${{ env.ESP_USB_PATH }} --ignore-warning-files ${{ env.ESP_USB_IGNORE_WARNING_FILE }}
+
+          # Config and manifest files for idf-build-apps are used from the esp-usb repository automatically
+          # Here we only overload path using CLI parameter -p to build only device test apps
+          cd ${{ env.ESP_USB_PATH }}
+          idf-build-apps find -p device --disable-targets esp32s31
+          idf-build-apps build -p device --disable-targets esp32s31
       - uses: actions/upload-artifact@v6
         with:
           # Test apps builds live under the repository workspace, we use workspace-relative glob

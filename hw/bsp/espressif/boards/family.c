@@ -49,7 +49,7 @@ static led_strip_handle_t led_strip;
 static void max3421_init(void);
 #endif
 
-#if TU_CHECK_MCU(OPT_MCU_ESP32S2, OPT_MCU_ESP32S3, OPT_MCU_ESP32H4, OPT_MCU_ESP32P4)
+#if TU_CHECK_MCU(OPT_MCU_ESP32S2, OPT_MCU_ESP32S3, OPT_MCU_ESP32H4, OPT_MCU_ESP32P4, OPT_MCU_ESP32S31)
 static bool usb_init(void);
 #endif
 
@@ -90,7 +90,7 @@ void board_init(void) {
   gpio_set_direction(BUTTON_PIN, GPIO_MODE_INPUT);
   gpio_set_pull_mode(BUTTON_PIN, BUTTON_STATE_ACTIVE ? GPIO_PULLDOWN_ONLY : GPIO_PULLUP_ONLY);
 
-#if TU_CHECK_MCU(OPT_MCU_ESP32S2, OPT_MCU_ESP32S3, OPT_MCU_ESP32H4, OPT_MCU_ESP32P4)
+#if TU_CHECK_MCU(OPT_MCU_ESP32S2, OPT_MCU_ESP32S3, OPT_MCU_ESP32H4, OPT_MCU_ESP32P4, OPT_MCU_ESP32S31)
   usb_init();
 #endif
 
@@ -104,10 +104,6 @@ void board_init(void) {
   max3421_init();
 #endif
 }
-
-#if TU_CHECK_MCU(OPT_MCU_ESP32S2, OPT_MCU_ESP32S3, OPT_MCU_ESP32H4)
-
-#endif
 
 //--------------------------------------------------------------------+
 // Board porting API
@@ -172,7 +168,7 @@ void board_reset_to_bootloader(void) {
 // PHY Init
 //--------------------------------------------------------------------
 
-#if TU_CHECK_MCU(OPT_MCU_ESP32S2, OPT_MCU_ESP32S3, OPT_MCU_ESP32H4, OPT_MCU_ESP32P4)
+#if TU_CHECK_MCU(OPT_MCU_ESP32S2, OPT_MCU_ESP32S3, OPT_MCU_ESP32H4, OPT_MCU_ESP32P4, OPT_MCU_ESP32S31)
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 3, 0)
 
 #include "esp_private/usb_phy.h"
@@ -183,7 +179,11 @@ bool usb_init(void) {
   // Configure USB PHY
   usb_phy_config_t phy_conf = {
     .controller = USB_PHY_CTRL_OTG,
+#if TU_CHECK_MCU(OPT_MCU_ESP32S31)
+    .target = USB_PHY_TARGET_UTMI,
+#else
     .target = USB_PHY_TARGET_INT,
+#endif
 
     // maybe we can use USB_OTG_MODE_DEFAULT and switch using dwc2 driver
 #if CFG_TUD_ENABLED

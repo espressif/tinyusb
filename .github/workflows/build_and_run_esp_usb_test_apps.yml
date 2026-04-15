@@ -53,8 +53,8 @@ jobs:
           # Config and manifest files for idf-build-apps are used from the esp-usb repository automatically
           # Here we only overload path using CLI parameter -p to build only device test apps
           cd ${{ env.ESP_USB_PATH }}
-          idf-build-apps find -p device --disable-targets esp32s31
-          idf-build-apps build -p device --disable-targets esp32s31
+          idf-build-apps find -p device
+          idf-build-apps build -p device
       - uses: actions/upload-artifact@v6
         with:
           # Test apps builds live under the repository workspace, we use workspace-relative glob

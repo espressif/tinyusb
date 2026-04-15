@@ -10,6 +10,7 @@ General
 
 - New MCUs and Boards:
 
+  - Add ESP32-S31 OTG high-speed support
   - Add ESP32-H4, ESP32-C5, ESP32-C61 support
   - Add STM32U0, STM32WBA, STM32N6
   - Add AT32F405, AT32F403A, AT32F415, AT32F423 support

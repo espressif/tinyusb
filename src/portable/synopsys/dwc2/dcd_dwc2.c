@@ -477,10 +477,17 @@ bool dcd_init(uint8_t rhport, const tusb_rhport_init_t* rh_init) {
   // Force device mode
   dwc2->gusbcfg = (dwc2->gusbcfg & ~GUSBCFG_FHMOD) | GUSBCFG_FDMOD;
 
-  // No overrides
-  //dwc2->gotgctl &= ~(GOTGCTL_BVALOEN | GOTGCTL_BVALOVAL | GOTGCTL_VBVALOVAL);
-  //dwc2->gotgctl |= (GOTGCTL_BVALOEN | GOTGCTL_BVALOVAL | GOTGCTL_VBVALOVAL);
-  dwc2->gotgctl |= GOTGCTL_BVALOEN | GOTGCTL_BVALOVAL;
+  // Default for all targets and for ESP32-P4 ECO5+
+  dwc2->gotgctl &= ~(GOTGCTL_BVALOEN | GOTGCTL_BVALOVAL | GOTGCTL_VBVALOVAL);
+
+  #if TU_CHECK_MCU(OPT_MCU_ESP32P4)
+  if (dwc2->gsnpsid <= DWC2_CORE_REV_4_00a) {
+    // ESP32-P4 ECO4 and earlier:
+    // override BVAL signal, otherwise the core may not generate
+    // WKUPINT when DWC2 clocks are gated.
+    dwc2->gotgctl |= GOTGCTL_BVALOEN | GOTGCTL_BVALOVAL;
+  }
+  #endif
 
 #if CFG_TUSB_MCU == OPT_MCU_STM32N6
   // No hardware detection of Vbus B-session is available on the STM32N6
@@ -488,7 +495,7 @@ bool dcd_init(uint8_t rhport, const tusb_rhport_init_t* rh_init) {
 #endif
 
   // Enable required interrupts
-  dwc2->gintmsk |= GINTMSK_OTGINT | GINTMSK_USBRST | GINTMSK_ENUMDNEM | GINTMSK_WUIM | GINTMSK_RSTDEM | GINTSTS_WKUINT;
+  dwc2->gintmsk |= GINTMSK_OTGINT | GINTMSK_USBRST | GINTMSK_ENUMDNEM | GINTMSK_RSTDEM | GINTMSK_WUIM;
 
   // TX FIFO empty level for interrupt is complete empty
   uint32_t gahbcfg = dwc2->gahbcfg;
@@ -543,8 +550,6 @@ void dcd_connect(uint8_t rhport) {
   dcd_dwc2_link_set(rhport, DCD_DWC2_LNK_IDLE);
 
 #if defined(TUP_USBIP_DWC2_ESP32) && !TU_CHECK_MCU(OPT_MCU_ESP32S31)
-  // USB_WRAP controls the internal FSLS PHY only (P4 rhport 0). HS UTMI (rhport 1) uses UTMI/HP_SYSTEM.
-#if !TU_CHECK_MCU(OPT_MCU_ESP32P4) || (rhport == 0)
   usb_wrap_otg_conf_reg_t conf = USB_WRAP.otg_conf;
   conf.pad_pull_override = 0;
   conf.dp_pullup = 0;
@@ -552,7 +557,6 @@ void dcd_connect(uint8_t rhport) {
   conf.dm_pullup = 0;
   conf.dm_pulldown = 0;
   USB_WRAP.otg_conf = conf;
-#endif
 #endif
 
   dwc2->dctl &= ~DCTL_SDIS;
@@ -563,11 +567,11 @@ void dcd_disconnect(uint8_t rhport) {
   dwc2_regs_t* dwc2 = DWC2_REG(rhport);
 
   esp_rom_printf("dcd_disconnect\n");
+  // Ungate DWC clock before accessing registers
   dwc2_dcd_exit_clock_gating(dwc2);
   dcd_dwc2_link_set(rhport, DCD_DWC2_LNK_OFF);
 
 #if defined(TUP_USBIP_DWC2_ESP32) && !TU_CHECK_MCU(OPT_MCU_ESP32S31)
-#if !TU_CHECK_MCU(OPT_MCU_ESP32P4) || (rhport == 0)
   usb_wrap_otg_conf_reg_t conf = USB_WRAP.otg_conf;
   conf.pad_pull_override = 1;
   conf.dp_pullup = 0;
@@ -575,7 +579,6 @@ void dcd_disconnect(uint8_t rhport) {
   conf.dm_pullup = 0;
   conf.dm_pulldown = 1;
   USB_WRAP.otg_conf = conf;
-#endif
 #endif
 
   dwc2->dctl |= DCTL_SDIS;
@@ -744,7 +747,6 @@ static void handle_bus_reset(uint8_t rhport) {
   // Ungate clocks before accessing registers (PG §14.2.3.3 host-initiated reset step 3)
   esp_rom_printf("handle_bus_reset\n");
   dwc2_dcd_exit_clock_gating(dwc2);
-
   dcd_dwc2_link_set(rhport, DCD_DWC2_LNK_DEFAULT);
 
   tu_memclr(xfer_status, sizeof(xfer_status));

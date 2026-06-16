@@ -414,6 +414,7 @@ TU_ATTR_ALWAYS_INLINE static inline bool dwc2_dcd_is_clock_gated(dwc2_regs_t* dw
 
 // Put controller in internal clock gating (device suspend, PG §14.2.2.2 step 2).
 TU_ATTR_ALWAYS_INLINE static inline bool dwc2_dcd_enter_clock_gating(dwc2_regs_t* dwc2) {
+  esp_rom_printf("enter\n");
   dwc2->pcgcctl |= PCGCCTL_STOPPCLK;
   dwc2->pcgcctl |= PCGCCTL_GATEHCLK;
 
@@ -422,11 +423,11 @@ TU_ATTR_ALWAYS_INLINE static inline bool dwc2_dcd_enter_clock_gating(dwc2_regs_t
   } else {
     return false; // Failed to gate
   }
-  // TODO for me: Handle return value
 }
 
-// Exit controller from device clock gating.
+// Exit controller from device clock gating (PG §14.2.2.2: ungate HCLK, then restore PHY clock).
 TU_ATTR_ALWAYS_INLINE static inline bool dwc2_dcd_exit_clock_gating(dwc2_regs_t* dwc2) {
+  esp_rom_printf("exit\n");
   dwc2->pcgcctl &= ~PCGCCTL_GATEHCLK;
   dwc2->pcgcctl &= ~PCGCCTL_STOPPCLK;
 
@@ -435,7 +436,6 @@ TU_ATTR_ALWAYS_INLINE static inline bool dwc2_dcd_exit_clock_gating(dwc2_regs_t*
   } else {
     return false; // Failed to ungate
   }
-  // TODO for me: Handle return value
 }
 
 //--------------------------------------------------------------------
@@ -478,8 +478,9 @@ bool dcd_init(uint8_t rhport, const tusb_rhport_init_t* rh_init) {
   dwc2->gusbcfg = (dwc2->gusbcfg & ~GUSBCFG_FHMOD) | GUSBCFG_FDMOD;
 
   // No overrides
-  dwc2->gotgctl &= ~(GOTGCTL_BVALOEN | GOTGCTL_BVALOVAL | GOTGCTL_VBVALOVAL);
-
+  //dwc2->gotgctl &= ~(GOTGCTL_BVALOEN | GOTGCTL_BVALOVAL | GOTGCTL_VBVALOVAL);
+  //dwc2->gotgctl |= (GOTGCTL_BVALOEN | GOTGCTL_BVALOVAL | GOTGCTL_VBVALOVAL);
+  dwc2->gotgctl |= GOTGCTL_BVALOEN | GOTGCTL_BVALOVAL;
 
 #if CFG_TUSB_MCU == OPT_MCU_STM32N6
   // No hardware detection of Vbus B-session is available on the STM32N6
@@ -487,7 +488,7 @@ bool dcd_init(uint8_t rhport, const tusb_rhport_init_t* rh_init) {
 #endif
 
   // Enable required interrupts
-  dwc2->gintmsk |= GINTMSK_OTGINT | GINTMSK_USBRST | GINTMSK_ENUMDNEM | GINTMSK_WUIM | GINTMSK_RSTDEM;
+  dwc2->gintmsk |= GINTMSK_OTGINT | GINTMSK_USBRST | GINTMSK_ENUMDNEM | GINTMSK_WUIM | GINTMSK_RSTDEM | GINTSTS_WKUINT;
 
   // TX FIFO empty level for interrupt is complete empty
   uint32_t gahbcfg = dwc2->gahbcfg;
@@ -520,6 +521,7 @@ void dcd_remote_wakeup(uint8_t rhport) {
 
   dwc2_regs_t* dwc2 = DWC2_REG(rhport);
 
+  esp_rom_printf("dcd_remote_wakeup\n");
   dwc2_dcd_exit_clock_gating(dwc2);
 
   dwc2->dctl |= DCTL_RWUSIG;
@@ -541,6 +543,8 @@ void dcd_connect(uint8_t rhport) {
   dcd_dwc2_link_set(rhport, DCD_DWC2_LNK_IDLE);
 
 #if defined(TUP_USBIP_DWC2_ESP32) && !TU_CHECK_MCU(OPT_MCU_ESP32S31)
+  // USB_WRAP controls the internal FSLS PHY only (P4 rhport 0). HS UTMI (rhport 1) uses UTMI/HP_SYSTEM.
+#if !TU_CHECK_MCU(OPT_MCU_ESP32P4) || (rhport == 0)
   usb_wrap_otg_conf_reg_t conf = USB_WRAP.otg_conf;
   conf.pad_pull_override = 0;
   conf.dp_pullup = 0;
@@ -548,6 +552,7 @@ void dcd_connect(uint8_t rhport) {
   conf.dm_pullup = 0;
   conf.dm_pulldown = 0;
   USB_WRAP.otg_conf = conf;
+#endif
 #endif
 
   dwc2->dctl &= ~DCTL_SDIS;
@@ -557,10 +562,12 @@ void dcd_disconnect(uint8_t rhport) {
   (void) rhport;
   dwc2_regs_t* dwc2 = DWC2_REG(rhport);
 
+  esp_rom_printf("dcd_disconnect\n");
   dwc2_dcd_exit_clock_gating(dwc2);
   dcd_dwc2_link_set(rhport, DCD_DWC2_LNK_OFF);
 
 #if defined(TUP_USBIP_DWC2_ESP32) && !TU_CHECK_MCU(OPT_MCU_ESP32S31)
+#if !TU_CHECK_MCU(OPT_MCU_ESP32P4) || (rhport == 0)
   usb_wrap_otg_conf_reg_t conf = USB_WRAP.otg_conf;
   conf.pad_pull_override = 1;
   conf.dp_pullup = 0;
@@ -568,6 +575,7 @@ void dcd_disconnect(uint8_t rhport) {
   conf.dm_pullup = 0;
   conf.dm_pulldown = 1;
   USB_WRAP.otg_conf = conf;
+#endif
 #endif
 
   dwc2->dctl |= DCTL_SDIS;
@@ -734,6 +742,7 @@ static void handle_bus_reset(uint8_t rhport) {
   const uint8_t ep_count =  dwc2_ep_count(dwc2);
 
   // Ungate clocks before accessing registers (PG §14.2.3.3 host-initiated reset step 3)
+  esp_rom_printf("handle_bus_reset\n");
   dwc2_dcd_exit_clock_gating(dwc2);
 
   dcd_dwc2_link_set(rhport, DCD_DWC2_LNK_DEFAULT);
@@ -1151,14 +1160,17 @@ void dcd_int_handler(uint8_t rhport) {
   const uint32_t gintsts = dwc2->gintsts & gintmask;
 
   if (gintsts & GINTSTS_RSTDET) {
+    esp_rom_printf("RSTDET trig\n");
     // RSTDET reset detected while suspended with clock gated, RSTDET fires before USBRST (PG §14.2.3.3).
     dwc2->gintsts = GINTSTS_RSTDET;
     if (_dcd_link_state[rhport] == DCD_DWC2_LNK_SUSPENDED || dwc2_dcd_is_clock_gated(dwc2)) {
+      esp_rom_printf("RSTDET\n");
       dwc2_dcd_exit_clock_gating(dwc2);
     }
   }
 
   if (gintsts & GINTSTS_USBRST) {
+    esp_rom_printf("USBRST\n");
     // USBRST is start of reset.
     dwc2->gintsts = GINTSTS_USBRST;
 
@@ -1189,6 +1201,7 @@ void dcd_int_handler(uint8_t rhport) {
 
   if (gintsts & GINTSTS_WKUINT) {
     // PG §14.2.2.2: resume detected; core deasserts suspend_n, then app clears GateHclk/StopPclk.
+    esp_rom_printf("WKUINT\n");
     dwc2_dcd_exit_clock_gating(dwc2);
     if (_dcd_link_state[rhport] == DCD_DWC2_LNK_SUSPENDED) {
       dcd_dwc2_link_set(rhport, DCD_DWC2_LNK_ACTIVE);
@@ -1206,6 +1219,7 @@ void dcd_int_handler(uint8_t rhport) {
     const uint32_t otg_int = dwc2->gotgint;
 
     if (otg_int & GOTGINT_SEDET) {
+      esp_rom_printf("OTGINT\n");
       dwc2_dcd_exit_clock_gating(dwc2);
       dcd_dwc2_link_set(rhport, DCD_DWC2_LNK_OFF);
       dcd_event_bus_signal(rhport, DCD_EVENT_UNPLUGGED, true);
@@ -1218,6 +1232,7 @@ void dcd_int_handler(uint8_t rhport) {
     dwc2->gintsts = GINTSTS_SOF;
     dwc2->gintmsk |= GINTMSK_USBSUSPM;
     if (_dcd_link_state[rhport] == DCD_DWC2_LNK_SUSPENDED) {
+      esp_rom_printf("SOF\n");
       dwc2_dcd_exit_clock_gating(dwc2);
       dcd_dwc2_link_set(rhport, DCD_DWC2_LNK_ACTIVE);
     }

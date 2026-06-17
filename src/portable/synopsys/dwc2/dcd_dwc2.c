@@ -1162,17 +1162,14 @@ void dcd_int_handler(uint8_t rhport) {
   const uint32_t gintsts = dwc2->gintsts & gintmask;
 
   if (gintsts & GINTSTS_RSTDET) {
-    esp_rom_printf("RSTDET trig\n");
-    // RSTDET reset detected while suspended with clock gated, RSTDET fires before USBRST (PG §14.2.3.3).
+    // RSTDET reset detected while suspended with clock gated, RSTDET fires before USBRST
     dwc2->gintsts = GINTSTS_RSTDET;
     if (_dcd_link_state[rhport] == DCD_DWC2_LNK_SUSPENDED || dwc2_dcd_is_clock_gated(dwc2)) {
-      esp_rom_printf("RSTDET\n");
       dwc2_dcd_exit_clock_gating(dwc2);
     }
   }
 
   if (gintsts & GINTSTS_USBRST) {
-    esp_rom_printf("USBRST\n");
     // USBRST is start of reset.
     dwc2->gintsts = GINTSTS_USBRST;
 
@@ -1193,8 +1190,7 @@ void dcd_int_handler(uint8_t rhport) {
     dwc2->gintmsk &= ~GINTMSK_USBSUSPM;
     // Plug/unplug noise can look like bus idle (suspend). Only gate when link is ACTIVE (SETUP seen)
     // and the core reports suspend status (DSTS.SuspSts).
-    if ((_dcd_link_state[rhport] == DCD_DWC2_LNK_ACTIVE) &&
-        (dwc2->dsts & DSTS_SUSPSTS)) {
+    if ((_dcd_link_state[rhport] == DCD_DWC2_LNK_ACTIVE) && (dwc2->dsts & DSTS_SUSPSTS)) {
       dwc2_dcd_enter_clock_gating(dwc2);
       dcd_dwc2_link_set(rhport, DCD_DWC2_LNK_SUSPENDED);
     }
@@ -1202,14 +1198,11 @@ void dcd_int_handler(uint8_t rhport) {
   }
 
   if (gintsts & GINTSTS_WKUINT) {
-    // PG §14.2.2.2: resume detected; core deasserts suspend_n, then app clears GateHclk/StopPclk.
-    esp_rom_printf("WKUINT\n");
+    // Exit clock gating before accessing any registers
     dwc2_dcd_exit_clock_gating(dwc2);
-    if (_dcd_link_state[rhport] == DCD_DWC2_LNK_SUSPENDED) {
-      dcd_dwc2_link_set(rhport, DCD_DWC2_LNK_ACTIVE);
-    }
     dwc2->gintsts = GINTSTS_WKUINT;
     dwc2->gintmsk |= GINTMSK_USBSUSPM;
+    dcd_dwc2_link_set(rhport, DCD_DWC2_LNK_ACTIVE);
     dcd_event_bus_signal(rhport, DCD_EVENT_RESUME, true);
   }
 
@@ -1221,7 +1214,6 @@ void dcd_int_handler(uint8_t rhport) {
     const uint32_t otg_int = dwc2->gotgint;
 
     if (otg_int & GOTGINT_SEDET) {
-      esp_rom_printf("OTGINT\n");
       dwc2_dcd_exit_clock_gating(dwc2);
       dcd_dwc2_link_set(rhport, DCD_DWC2_LNK_OFF);
       dcd_event_bus_signal(rhport, DCD_EVENT_UNPLUGGED, true);
@@ -1231,13 +1223,13 @@ void dcd_int_handler(uint8_t rhport) {
   }
 
   if(gintsts & GINTSTS_SOF) {
-    dwc2->gintsts = GINTSTS_SOF;
-    dwc2->gintmsk |= GINTMSK_USBSUSPM;
     if (_dcd_link_state[rhport] == DCD_DWC2_LNK_SUSPENDED) {
-      esp_rom_printf("SOF\n");
+      // Exit clock gating before accessing any registers
       dwc2_dcd_exit_clock_gating(dwc2);
       dcd_dwc2_link_set(rhport, DCD_DWC2_LNK_ACTIVE);
     }
+    dwc2->gintsts = GINTSTS_SOF;
+    dwc2->gintmsk |= GINTMSK_USBSUSPM;
     const uint32_t frame = (dwc2->dsts & DSTS_FNSOF) >> DSTS_FNSOF_Pos;
 
     // Disable SOF interrupt if SOF was not explicitly enabled since SOF was used for remote wakeup detection

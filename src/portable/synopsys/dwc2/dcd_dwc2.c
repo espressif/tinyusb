@@ -58,6 +58,22 @@ typedef struct {
 static xfer_ctl_t xfer_status[DWC2_EP_MAX][2];
 #define XFER_CTL_BASE(_ep, _dir) (&xfer_status[_ep][_dir])
 
+//--------------------------------------------------------------------+
+// Device link state (dcd_dwc2)
+//--------------------------------------------------------------------+
+typedef enum {
+  DCD_DWC2_LNK_OFF = 0,   // Soft-disconnected (DCTL_SDIS) or session end (e.g. OTG SEDET)
+  DCD_DWC2_LNK_IDLE,      // Pull-up enabled, waiting for USB bus reset
+  DCD_DWC2_LNK_DEFAULT,   // After USB reset; default device state (address 0)
+  DCD_DWC2_LNK_ACTIVE,    // SETUP received from host
+  DCD_DWC2_LNK_SUSPENDED, // Suspended with DWC2 clock gated
+} link_state_t;
+
+typedef struct {
+  link_state_t current_state;
+  link_state_t last_state;
+} dcd_dwc2_link_t;
+
 typedef struct {
   // EP0 transfers are limited to 1 packet - larger sizes has to be split
   uint16_t ep0_pending[2];  // Index determines direction as tusb_dir_t type
@@ -72,12 +88,15 @@ typedef struct {
 
 static dcd_data_t _dcd_data;
 
-static volatile dcd_dwc2_link_state_t _dcd_link_state[DWC2_CONTROLLER_COUNT];
+static volatile dcd_dwc2_link_t _dcd_link;
 
-TU_ATTR_ALWAYS_INLINE static inline void dcd_dwc2_link_set(uint8_t rhport, dcd_dwc2_link_state_t state) {
-  if (rhport < DWC2_CONTROLLER_COUNT) {
-    _dcd_link_state[rhport] = state;
-  }
+TU_ATTR_ALWAYS_INLINE static inline void dcd_dwc2_link_set_state(link_state_t state) {
+    _dcd_link.last_state = _dcd_link.current_state;
+    _dcd_link.current_state = state;
+}
+
+TU_ATTR_ALWAYS_INLINE static inline void dcd_dwc2_link_set_last_state(void) {
+    _dcd_link.current_state = _dcd_link.last_state;
 }
 
 CFG_TUD_MEM_SECTION static struct {
@@ -446,7 +465,8 @@ bool dcd_init(uint8_t rhport, const tusb_rhport_init_t* rh_init) {
   dwc2_regs_t* dwc2 = DWC2_REG(rhport);
 
   tu_memclr(&_dcd_data, sizeof(_dcd_data));
-  _dcd_link_state[rhport] = DCD_DWC2_LNK_OFF;
+  _dcd_link.current_state = DCD_DWC2_LNK_OFF;
+  _dcd_link.last_state = DCD_DWC2_LNK_OFF;
 
   // Core Initialization
   const bool is_highspeed = dwc2_core_is_highspeed(dwc2, TUSB_ROLE_DEVICE);
@@ -547,7 +567,7 @@ void dcd_connect(uint8_t rhport) {
   (void) rhport;
   dwc2_regs_t* dwc2 = DWC2_REG(rhport);
 
-  dcd_dwc2_link_set(rhport, DCD_DWC2_LNK_IDLE);
+  dcd_dwc2_link_set_state(DCD_DWC2_LNK_IDLE);
 
 #if defined(TUP_USBIP_DWC2_ESP32) && !TU_CHECK_MCU(OPT_MCU_ESP32S31)
   usb_wrap_otg_conf_reg_t conf = USB_WRAP.otg_conf;
@@ -569,7 +589,7 @@ void dcd_disconnect(uint8_t rhport) {
   esp_rom_printf("dcd_disconnect\n");
   // Ungate DWC clock before accessing registers
   dwc2_dcd_exit_clock_gating(dwc2);
-  dcd_dwc2_link_set(rhport, DCD_DWC2_LNK_OFF);
+  dcd_dwc2_link_set_state(DCD_DWC2_LNK_OFF);
 
 #if defined(TUP_USBIP_DWC2_ESP32) && !TU_CHECK_MCU(OPT_MCU_ESP32S31)
   usb_wrap_otg_conf_reg_t conf = USB_WRAP.otg_conf;
@@ -743,11 +763,6 @@ void dcd_edpt_clear_stall(uint8_t rhport, uint8_t ep_addr) {
 static void handle_bus_reset(uint8_t rhport) {
   dwc2_regs_t *dwc2 = DWC2_REG(rhport);
   const uint8_t ep_count =  dwc2_ep_count(dwc2);
-
-  // Ungate clocks before accessing registers (PG §14.2.3.3 host-initiated reset step 3)
-  esp_rom_printf("handle_bus_reset\n");
-  dwc2_dcd_exit_clock_gating(dwc2);
-  dcd_dwc2_link_set(rhport, DCD_DWC2_LNK_DEFAULT);
 
   tu_memclr(xfer_status, sizeof(xfer_status));
 
@@ -927,7 +942,6 @@ static void handle_epout_slave(uint8_t rhport, uint8_t epnum, dwc2_doepint_t doe
     if (epin0->diepctl & DIEPCTL_EPENA) {
       edpt_disable(rhport, 0x80, false);
     }
-    dcd_dwc2_link_set(rhport, DCD_DWC2_LNK_ACTIVE);
     dcd_event_setup_received(rhport, _dcd_usbbuf.setup_packet, true);
     return;
   }
@@ -1013,7 +1027,6 @@ static void handle_epout_dma(uint8_t rhport, uint8_t epnum, dwc2_doepint_t doepi
     }
     dma_setup_prepare(rhport);
     dcd_dcache_invalidate(_dcd_usbbuf.setup_packet, 8);
-    dcd_dwc2_link_set(rhport, DCD_DWC2_LNK_ACTIVE);
     dcd_event_setup_received(rhport, _dcd_usbbuf.setup_packet, true);
     return;
   }
@@ -1164,7 +1177,7 @@ void dcd_int_handler(uint8_t rhport) {
   if (gintsts & GINTSTS_RSTDET) {
     // RSTDET reset detected while suspended with clock gated, RSTDET fires before USBRST
     dwc2->gintsts = GINTSTS_RSTDET;
-    if (_dcd_link_state[rhport] == DCD_DWC2_LNK_SUSPENDED || dwc2_dcd_is_clock_gated(dwc2)) {
+    if (_dcd_link.current_state == DCD_DWC2_LNK_SUSPENDED || dwc2_dcd_is_clock_gated(dwc2)) {
       dwc2_dcd_exit_clock_gating(dwc2);
     }
   }
@@ -1173,9 +1186,11 @@ void dcd_int_handler(uint8_t rhport) {
     // USBRST is start of reset.
     dwc2->gintsts = GINTSTS_USBRST;
 
+    // DWC2 clock is already ungated by GINTSTS_RSTDET interrupt handler
     usbd_spin_lock(true);
     handle_bus_reset(rhport);
     usbd_spin_unlock(true);
+    dcd_dwc2_link_set_state(DCD_DWC2_LNK_DEFAULT);
   }
 
   if (gintsts & GINTSTS_ENUMDNE) {
@@ -1183,6 +1198,7 @@ void dcd_int_handler(uint8_t rhport) {
     dwc2->gintsts = GINTSTS_ENUMDNE;
     dwc2->gintmsk |= GINTMSK_USBSUSPM;
     handle_enum_done(rhport);
+    dcd_dwc2_link_set_state(DCD_DWC2_LNK_ACTIVE);
   }
 
   if (gintsts & GINTSTS_USBSUSP) {
@@ -1190,9 +1206,9 @@ void dcd_int_handler(uint8_t rhport) {
     dwc2->gintmsk &= ~GINTMSK_USBSUSPM;
     // Plug/unplug noise can look like bus idle (suspend). Only gate when link is ACTIVE (SETUP seen)
     // and the core reports suspend status (DSTS.SuspSts).
-    if ((_dcd_link_state[rhport] == DCD_DWC2_LNK_ACTIVE) && (dwc2->dsts & DSTS_SUSPSTS)) {
+    if ((_dcd_link.current_state == DCD_DWC2_LNK_ACTIVE) && (dwc2->dsts & DSTS_SUSPSTS)) {
       dwc2_dcd_enter_clock_gating(dwc2);
-      dcd_dwc2_link_set(rhport, DCD_DWC2_LNK_SUSPENDED);
+      dcd_dwc2_link_set_state(DCD_DWC2_LNK_SUSPENDED);
     }
     dcd_event_bus_signal(rhport, DCD_EVENT_SUSPEND, true);
   }
@@ -1202,7 +1218,8 @@ void dcd_int_handler(uint8_t rhport) {
     dwc2_dcd_exit_clock_gating(dwc2);
     dwc2->gintsts = GINTSTS_WKUINT;
     dwc2->gintmsk |= GINTMSK_USBSUSPM;
-    dcd_dwc2_link_set(rhport, DCD_DWC2_LNK_ACTIVE);
+    // Set last state, which was current before suspending
+    dcd_dwc2_link_set_last_state();
     dcd_event_bus_signal(rhport, DCD_EVENT_RESUME, true);
   }
 
@@ -1215,7 +1232,7 @@ void dcd_int_handler(uint8_t rhport) {
 
     if (otg_int & GOTGINT_SEDET) {
       dwc2_dcd_exit_clock_gating(dwc2);
-      dcd_dwc2_link_set(rhport, DCD_DWC2_LNK_OFF);
+      dcd_dwc2_link_set_state(DCD_DWC2_LNK_OFF);
       dcd_event_bus_signal(rhport, DCD_EVENT_UNPLUGGED, true);
     }
 
@@ -1223,10 +1240,11 @@ void dcd_int_handler(uint8_t rhport) {
   }
 
   if(gintsts & GINTSTS_SOF) {
-    if (_dcd_link_state[rhport] == DCD_DWC2_LNK_SUSPENDED) {
+    if (_dcd_link.current_state == DCD_DWC2_LNK_SUSPENDED) {
       // Exit clock gating before accessing any registers
       dwc2_dcd_exit_clock_gating(dwc2);
-      dcd_dwc2_link_set(rhport, DCD_DWC2_LNK_ACTIVE);
+      // Set last state, which was current before suspending
+      dcd_dwc2_link_set_last_state();
     }
     dwc2->gintsts = GINTSTS_SOF;
     dwc2->gintmsk |= GINTMSK_USBSUSPM;
@@ -1281,12 +1299,5 @@ void dcd_enter_test_mode(uint8_t rhport, tusb_feature_test_mode_t test_selector)
   dwc2->dctl = (dwc2->dctl & ~DCTL_TCTL_Msk) | (((uint8_t) test_selector) << DCTL_TCTL_Pos);
 }
 #endif
-
-dcd_dwc2_link_state_t dcd_dwc2_link_state_get(uint8_t rhport) {
-  if (rhport >= DWC2_CONTROLLER_COUNT) {
-    return DCD_DWC2_LNK_OFF;
-  }
-  return _dcd_link_state[rhport];
-}
 
 #endif

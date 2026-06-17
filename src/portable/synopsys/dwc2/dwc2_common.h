@@ -100,19 +100,4 @@ void dfifo_write_packet(dwc2_regs_t* dwc2, uint8_t fifo_num, uint8_t const* src,
 // DMA
 //--------------------------------------------------------------------+
 
-//--------------------------------------------------------------------+
-// Device link state (dcd_dwc2)
-//--------------------------------------------------------------------+
-#if CFG_TUD_ENABLED
-typedef enum {
-  DCD_DWC2_LNK_OFF = 0,   // Soft-disconnected (DCTL_SDIS) or session end (e.g. OTG SEDET)
-  DCD_DWC2_LNK_IDLE,      // Pull-up enabled, waiting for USB bus reset
-  DCD_DWC2_LNK_DEFAULT,   // After USB reset; default device state (address 0)
-  DCD_DWC2_LNK_ACTIVE,    // SETUP received from host; bus suspend can be trusted (not plug noise)
-  DCD_DWC2_LNK_SUSPENDED, // USB suspend (PHY/HCLK may be clock-gated)
-} dcd_dwc2_link_state_t;
-
-dcd_dwc2_link_state_t dcd_dwc2_link_state_get(uint8_t rhport);
-#endif
-
 #endif

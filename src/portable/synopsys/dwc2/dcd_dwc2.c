@@ -70,11 +70,6 @@ typedef enum {
 } link_state_t;
 
 typedef struct {
-  link_state_t current_state;
-  link_state_t last_state;
-} dcd_dwc2_link_t;
-
-typedef struct {
   // EP0 transfers are limited to 1 packet - larger sizes has to be split
   uint16_t ep0_pending[2];  // Index determines direction as tusb_dir_t type
   uint16_t dfifo_top;      // top free location in DFIFO in words
@@ -84,19 +79,21 @@ typedef struct {
 
   // SOF enabling flag - required for SOF to not get disabled in ISR when SOF was enabled by
   bool sof_en;
+
+  // Device link FSM
+  link_state_t link_state_current;  // Current state
+  link_state_t link_state_last;     // Last state, used to set current state after resuming
 } dcd_data_t;
 
 static dcd_data_t _dcd_data;
 
-static volatile dcd_dwc2_link_t _dcd_link;
-
 TU_ATTR_ALWAYS_INLINE static inline void dcd_dwc2_link_set_state(link_state_t state) {
-    _dcd_link.last_state = _dcd_link.current_state;
-    _dcd_link.current_state = state;
+  _dcd_data.link_state_last = _dcd_data.link_state_current;
+  _dcd_data.link_state_current = state;
 }
 
 TU_ATTR_ALWAYS_INLINE static inline void dcd_dwc2_link_set_last_state(void) {
-    _dcd_link.current_state = _dcd_link.last_state;
+  _dcd_data.link_state_current = _dcd_data.link_state_last;
 }
 
 CFG_TUD_MEM_SECTION static struct {
@@ -433,27 +430,27 @@ TU_ATTR_ALWAYS_INLINE static inline bool dwc2_dcd_is_clock_gated(dwc2_regs_t* dw
 
 // Put controller in internal clock gating (device suspend, PG §14.2.2.2 step 2).
 TU_ATTR_ALWAYS_INLINE static inline bool dwc2_dcd_enter_clock_gating(dwc2_regs_t* dwc2) {
-  esp_rom_printf("enter\n");
   dwc2->pcgcctl |= PCGCCTL_STOPPCLK;
   dwc2->pcgcctl |= PCGCCTL_GATEHCLK;
 
   if ((dwc2->pcgcctl & (PCGCCTL_STOPPCLK | PCGCCTL_GATEHCLK)) == (PCGCCTL_STOPPCLK | PCGCCTL_GATEHCLK)) {
-    return true;  // Successfully gated
+    return true;
   } else {
-    return false; // Failed to gate
+    TU_LOG1("Failed to gate DWC2 clock\n");
+    return false;
   }
 }
 
 // Exit controller from device clock gating (PG §14.2.2.2: ungate HCLK, then restore PHY clock).
 TU_ATTR_ALWAYS_INLINE static inline bool dwc2_dcd_exit_clock_gating(dwc2_regs_t* dwc2) {
-  esp_rom_printf("exit\n");
   dwc2->pcgcctl &= ~PCGCCTL_GATEHCLK;
   dwc2->pcgcctl &= ~PCGCCTL_STOPPCLK;
 
   if ((dwc2->pcgcctl & (PCGCCTL_GATEHCLK | PCGCCTL_STOPPCLK)) == 0) {
-    return true;  // Successfully ungated
+    return true;
   } else {
-    return false; // Failed to ungate
+    TU_LOG1("Failed to un-gate DWC2 clock\n");
+    return false;
   }
 }
 
@@ -465,8 +462,6 @@ bool dcd_init(uint8_t rhport, const tusb_rhport_init_t* rh_init) {
   dwc2_regs_t* dwc2 = DWC2_REG(rhport);
 
   tu_memclr(&_dcd_data, sizeof(_dcd_data));
-  _dcd_link.current_state = DCD_DWC2_LNK_OFF;
-  _dcd_link.last_state = DCD_DWC2_LNK_OFF;
 
   // Core Initialization
   const bool is_highspeed = dwc2_core_is_highspeed(dwc2, TUSB_ROLE_DEVICE);
@@ -497,14 +492,13 @@ bool dcd_init(uint8_t rhport, const tusb_rhport_init_t* rh_init) {
   // Force device mode
   dwc2->gusbcfg = (dwc2->gusbcfg & ~GUSBCFG_FHMOD) | GUSBCFG_FDMOD;
 
-  // Default for all targets and for ESP32-P4 ECO5+
+  // Default for all targets except for ESP32-P4 ECO4
   dwc2->gotgctl &= ~(GOTGCTL_BVALOEN | GOTGCTL_BVALOVAL | GOTGCTL_VBVALOVAL);
 
   #if TU_CHECK_MCU(OPT_MCU_ESP32P4)
   if (dwc2->gsnpsid <= DWC2_CORE_REV_4_00a) {
-    // ESP32-P4 ECO4 and earlier:
-    // override BVAL signal, otherwise the core may not generate
-    // WKUPINT when DWC2 clocks are gated.
+    // ESP32-P4 ECO4:
+    // override BVAL signal, otherwise the core would not generate WKUPINT when DWC2 clocks are gated.
     dwc2->gotgctl |= GOTGCTL_BVALOEN | GOTGCTL_BVALOVAL;
   }
   #endif
@@ -547,8 +541,6 @@ void dcd_remote_wakeup(uint8_t rhport) {
   (void) rhport;
 
   dwc2_regs_t* dwc2 = DWC2_REG(rhport);
-
-  esp_rom_printf("dcd_remote_wakeup\n");
   dwc2_dcd_exit_clock_gating(dwc2);
 
   dwc2->dctl |= DCTL_RWUSIG;
@@ -586,7 +578,6 @@ void dcd_disconnect(uint8_t rhport) {
   (void) rhport;
   dwc2_regs_t* dwc2 = DWC2_REG(rhport);
 
-  esp_rom_printf("dcd_disconnect\n");
   // Ungate DWC clock before accessing registers
   dwc2_dcd_exit_clock_gating(dwc2);
   dcd_dwc2_link_set_state(DCD_DWC2_LNK_OFF);
@@ -1177,7 +1168,7 @@ void dcd_int_handler(uint8_t rhport) {
   if (gintsts & GINTSTS_RSTDET) {
     // RSTDET reset detected while suspended with clock gated, RSTDET fires before USBRST
     dwc2->gintsts = GINTSTS_RSTDET;
-    if (_dcd_link.current_state == DCD_DWC2_LNK_SUSPENDED || dwc2_dcd_is_clock_gated(dwc2)) {
+    if (_dcd_data.link_state_current == DCD_DWC2_LNK_SUSPENDED || dwc2_dcd_is_clock_gated(dwc2)) {
       dwc2_dcd_exit_clock_gating(dwc2);
     }
   }
@@ -1206,7 +1197,7 @@ void dcd_int_handler(uint8_t rhport) {
     dwc2->gintmsk &= ~GINTMSK_USBSUSPM;
     // Plug/unplug noise can look like bus idle (suspend). Only gate when link is ACTIVE (SETUP seen)
     // and the core reports suspend status (DSTS.SuspSts).
-    if ((_dcd_link.current_state == DCD_DWC2_LNK_ACTIVE) && (dwc2->dsts & DSTS_SUSPSTS)) {
+    if ((_dcd_data.link_state_current == DCD_DWC2_LNK_ACTIVE) && (dwc2->dsts & DSTS_SUSPSTS)) {
       dwc2_dcd_enter_clock_gating(dwc2);
       dcd_dwc2_link_set_state(DCD_DWC2_LNK_SUSPENDED);
     }
@@ -1240,7 +1231,7 @@ void dcd_int_handler(uint8_t rhport) {
   }
 
   if(gintsts & GINTSTS_SOF) {
-    if (_dcd_link.current_state == DCD_DWC2_LNK_SUSPENDED) {
+    if (_dcd_data.link_state_current == DCD_DWC2_LNK_SUSPENDED) {
       // Exit clock gating before accessing any registers
       dwc2_dcd_exit_clock_gating(dwc2);
       // Set last state, which was current before suspending

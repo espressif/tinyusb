@@ -40,6 +40,7 @@
 
 #include "device/dcd.h"
 #include "dwc2_common.h"
+#include "esp_timer.h"
 
 #if TU_CHECK_MCU(OPT_MCU_GD32VF103)
   #define DWC2_EP_COUNT(_dwc2)   DWC2_EP_MAX
@@ -668,6 +669,18 @@ static void handle_bus_reset(uint8_t rhport) {
   dwc2->doepmsk = DOEPMSK_STUPM | DOEPMSK_XFRCM;
   dwc2->diepmsk = DIEPMSK_TOM | DIEPMSK_XFRCM;
 
+  // FW-1861/1881/crash-fix: also clear the per-endpoint TXFE interrupt-enable mask.
+  // xfer_status above is wiped (xfer->buffer -> NULL for every endpoint) but this mask
+  // is a separate register set by edpt_schedule_packets() and normally only cleared by
+  // handle_epin_slave() once a transfer's xfer_size reaches 0 - it survives a bus reset
+  // otherwise. Only EP0 is re-armed by daintmsk above, so no legitimate in-flight
+  // transfer on any other endpoint should still be signaled after this reset; if left
+  // set, a re-opened endpoint can get a TXFE interrupt before the class driver has
+  // queued a new transfer, and handle_epin_slave() dereferences the NULL xfer->buffer
+  // in dfifo_write_packet() - a LoadProhibited crash observed under rapid AP53782-driven
+  // USB restarts.
+  dwc2->diepempmsk = 0;
+
   // 4. Set up DFIFO
   dfifo_flush_tx(dwc2, 0x10); // all tx fifo
   dfifo_flush_rx(dwc2);
@@ -843,6 +856,15 @@ static void handle_epin_slave(uint8_t rhport, uint8_t epnum, dwc2_diepint_t diep
   // - 64 bytes or
   // - Half/Empty of TX FIFO size (configured by GAHBCFG.TXFELVL)
   if (diepint_bm.txfifo_empty && (dwc2->diepempmsk & (1 << epnum))) {
+    // FW-1861/1881/crash-fix: defense-in-depth against a stale TXFE-enable reaching
+    // here for an endpoint that has been (re)opened but not yet given a transfer to
+    // send (xfer->buffer/ff still NULL) - handle_bus_reset() now clears diepempmsk for
+    // exactly this reason, but guard the NULL deref directly too rather than relying
+    // solely on that invariant holding across every code path.
+    if (!xfer->ff && xfer->buffer == NULL) {
+      dwc2->diepempmsk &= ~(1 << epnum);
+      return;
+    }
     const uint16_t remain_packets = epin->tsiz_bm.packet_count;
 
     // Process every single packet (only whole packets can be written to fifo)
@@ -984,8 +1006,65 @@ static void handle_ep_irq(uint8_t rhport, uint8_t dir) {
   Note: when OTG_MULTI_PROC_INTRPT = 1, Device Each endpoint interrupt deachint/deachmsk/diepeachmsk/doepeachmsk
   are combined to generate dedicated interrupt line for each endpoint.
  */
+// FW-1861/1881/crash-fix: the per-ISR RXFLVL iteration cap (below) bounds any single
+// dcd_int_handler entry, but under a sustained hostile refill rate (FIFO refills faster
+// than 64 packets can drain) the interrupt just re-fires immediately - many short,
+// individually-bounded ISR entries back to back still add up to the same cumulative CPU
+// starvation the cap was meant to prevent, and still trips the 300ms Interrupt WDT.
+// Observed in the field as a recurrence of the same crash after the iteration cap alone.
+// When the cap is hit, leave RXFLVLM masked for a short cooldown instead of re-enabling
+// it immediately, so a hostile refill rate can only consume the CPU in bounded bursts
+// with real idle time in between. esp_timer_get_time() is documented safe to call from
+// ISR context.
+static int64_t rxflvl_cooldown_until_us = 0;
+
+// FW-1861/1881/crash-fix: lock-free cumulative counter of cooldown activations, for
+// visibility from outside the ISR. Deliberately NOT logged from here - this interrupt
+// runs at a high Xtensa interrupt level, and calling into ESP_LOG/vprintf's newlib lock
+// from that context is exactly the kind of thing that caused a separate lock-related
+// abort() elsewhere this session. A plain increment is safe; the caller (bb_usb.cpp's
+// dcd_dwc2_rxflvl_cooldown_count()) reads it from normal task context instead.
+static volatile uint32_t rxflvl_cooldown_count = 0;
+
+uint32_t dcd_dwc2_rxflvl_cooldown_count(void) {
+  return rxflvl_cooldown_count;
+}
+
+// FW-1861/1881/crash-fix: a second, independent instance of the same crash class,
+// observed in the field as an Interrupt WDT timeout inside handle_ep_irq (dcd_dwc2.c)
+// rather than the RXFLVL drain loop. handle_ep_irq's own per-call work is already
+// bounded (a small fixed loop over ep_count), so a single call cannot itself spin - the
+// storm here is dcd_int_handler being re-entered for IEPINT/OEPINT (TX FIFO empty / OUT
+// transfer completion) at a pathological rate, e.g. during AP53782-driven rapid
+// re-enumeration attempts. Unlike RXFLVL there is no natural "still not drained" signal
+// per call to trigger on, so this tracks the ENTRY RATE in a rolling window instead: if
+// dcd_int_handler is being hit for IEPINT/OEPINT far faster than any legitimate transfer
+// pattern could produce, mask both out for a short cooldown, mirroring RXFLVL's backoff.
+static int64_t ep_irq_cooldown_until_us = 0;
+static volatile uint32_t ep_irq_cooldown_count = 0;
+static int64_t ep_irq_rate_window_start_us = 0;
+static uint32_t ep_irq_rate_window_count = 0;
+
+uint32_t dcd_dwc2_ep_irq_cooldown_count(void) {
+  return ep_irq_cooldown_count;
+}
+
 void dcd_int_handler(uint8_t rhport) {
   dwc2_regs_t* dwc2 = DWC2_REG(rhport);
+
+  // Re-enable RXFLVLM once a prior cooldown has elapsed. This must run on every entry
+  // (not just when GINTSTS_RXFLVL is set) since RXFLVLM is masked out of gintmsk during
+  // cooldown, so the RXFLVL condition itself can never trigger this handler to check.
+  if (rxflvl_cooldown_until_us != 0 && esp_timer_get_time() >= rxflvl_cooldown_until_us) {
+    dwc2->gintmsk |= GINTMSK_RXFLVLM;
+    rxflvl_cooldown_until_us = 0;
+  }
+
+  // Same re-enable pattern as RXFLVL above, for the IEPINT/OEPINT cooldown.
+  if (ep_irq_cooldown_until_us != 0 && esp_timer_get_time() >= ep_irq_cooldown_until_us) {
+    dwc2->gintmsk |= (GINTMSK_IEPINT | GINTMSK_OEPINT);
+    ep_irq_cooldown_until_us = 0;
+  }
 
   const uint32_t gintmask = dwc2->gintmsk;
   const uint32_t gintsts = dwc2->gintsts & gintmask;
@@ -1044,24 +1123,70 @@ void dcd_int_handler(uint8_t rhport) {
     // RXFLVL bit is read-only
     dwc2->gintmsk &= ~GINTMSK_RXFLVLM; // disable RXFLVL interrupt while reading
 
+    // FW-1861/1881/crash-fix: bound this drain loop. It previously had no iteration
+    // cap and ran until hardware reported the RX FIFO empty; under rapid bus resets /
+    // D+ toggling (repeated AP53782-driven USB restarts) the FIFO can keep refilling
+    // faster than it drains, letting this spin for an unbounded time entirely inside
+    // the ISR and trip the 300ms Interrupt WDT (observed in the field as a Core panic
+    // in dcd_int_handler).
+    uint32_t rxflvl_iterations = 0;
+    const uint32_t kMaxRxflvlIterationsPerIsr = 64;
     do {
       handle_rxflvl_irq(rhport); // read all packets
-    } while(dwc2->gintsts & GINTSTS_RXFLVL);
+      rxflvl_iterations++;
+    } while ((dwc2->gintsts & GINTSTS_RXFLVL) && rxflvl_iterations < kMaxRxflvlIterationsPerIsr);
 
-    dwc2->gintmsk |= GINTMSK_RXFLVLM;
+    if (rxflvl_iterations >= kMaxRxflvlIterationsPerIsr) {
+      // FIFO still not drained after the cap: a hostile refill rate would otherwise
+      // just re-fire this interrupt immediately, so many individually-bounded ISR
+      // entries back to back would still starve the CPU for 300ms+ in aggregate (see
+      // rxflvl_cooldown_until_us's doc comment). Back off instead of re-enabling now.
+      const int64_t kRxflvlCooldownUs = 2000;
+      rxflvl_cooldown_until_us = esp_timer_get_time() + kRxflvlCooldownUs;
+      rxflvl_cooldown_count++;
+    } else {
+      dwc2->gintmsk |= GINTMSK_RXFLVLM;
+    }
   }
 #endif
 
-  // OUT endpoint interrupt handling.
-  if (gintsts & GINTSTS_OEPINT) {
-    // OEPINT is read-only, clear using DOEPINTn
-    handle_ep_irq(rhport, TUSB_DIR_OUT);
-  }
+  // OUT/IN endpoint interrupt handling.
+  // FW-1861/1881/crash-fix: see ep_irq_cooldown_until_us's doc comment above. Track
+  // entries within a rolling window and back off if the rate turns pathological.
+  if (gintsts & (GINTSTS_OEPINT | GINTSTS_IEPINT)) {
+    const int64_t now_us = esp_timer_get_time();
+    const int64_t kEpIrqRateWindowUs = 50000;         // 50ms
+    const uint32_t kMaxEpIrqEntriesPerWindow = 300;   // well above any legitimate rate
+    if (now_us - ep_irq_rate_window_start_us >= kEpIrqRateWindowUs) {
+      ep_irq_rate_window_start_us = now_us;
+      ep_irq_rate_window_count = 1;
+    } else {
+      ep_irq_rate_window_count++;
+    }
 
-  // IN endpoint interrupt handling.
-  if (gintsts & GINTSTS_IEPINT) {
-    // IEPINT bit read-only, clear using DIEPINTn
-    handle_ep_irq(rhport, TUSB_DIR_IN);
+    if (ep_irq_rate_window_count >= kMaxEpIrqEntriesPerWindow) {
+      // Pathological entry rate: back off instead of processing this round, mirroring
+      // RXFLVL's cooldown. No data is lost - the pending IEPINT/OEPINT condition and
+      // any in-flight transfer state remain intact, just deferred until the mask is
+      // restored above.
+      const int64_t kEpIrqCooldownUs = 5000;
+      dwc2->gintmsk &= ~(GINTMSK_IEPINT | GINTMSK_OEPINT);
+      ep_irq_cooldown_until_us = now_us + kEpIrqCooldownUs;
+      ep_irq_cooldown_count++;
+      ep_irq_rate_window_count = 0;
+    } else {
+      // OUT endpoint interrupt handling.
+      if (gintsts & GINTSTS_OEPINT) {
+        // OEPINT is read-only, clear using DOEPINTn
+        handle_ep_irq(rhport, TUSB_DIR_OUT);
+      }
+
+      // IN endpoint interrupt handling.
+      if (gintsts & GINTSTS_IEPINT) {
+        // IEPINT bit read-only, clear using DIEPINTn
+        handle_ep_irq(rhport, TUSB_DIR_IN);
+      }
+    }
   }
 }
 

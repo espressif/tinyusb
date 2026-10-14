@@ -442,7 +442,16 @@ static void edpt_schedule_packets(uint8_t rhport, const uint8_t epnum, const uin
     if (dir == TUSB_DIR_IN && total_bytes != 0) {
       dcd_dcache_clean(xfer->buffer, total_bytes);
     }
-    dep->diepdma = (uintptr_t) xfer->buffer;
+
+    // Keep EP0 OUT ready for a SETUP packet while waiting for the status ZLP. The status
+    // transfer has no data buffer, but SETUP packets can still be received and DMA writes
+    // them to DOEPDMA0.
+    if (epnum == 0 && dir == TUSB_DIR_OUT && total_bytes == 0) {
+      dep->doeptsiz |= (3 << DOEPTSIZ_STUPCNT_Pos);
+      dep->doepdma = (uintptr_t) _dcd_usbbuf.setup_buffer;
+    } else {
+      dep->diepdma = (uintptr_t) xfer->buffer;
+    }
     dep->diepctl = depctl.value; // enable endpoint
   } else
   #endif

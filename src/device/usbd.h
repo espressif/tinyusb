@@ -196,6 +196,10 @@ void tud_resume_cb(void);
 // Invoked when there is a new usb event, which need to be processed by tud_task()/tud_task_ext()
 void tud_event_hook_cb(uint8_t rhport, uint32_t eventid, bool in_isr);
 
+// Invoked from tud_task() when DWC2 detects an EP0 SETUP DMA address underflow
+// This can happen with consecutive short (< 8 bytes) SETUP packets. This indicates defective or malicious USB host.
+void tud_dwc2_setup_dma_error_cb(uint8_t rhport);
+
 // Invoked when a new (micro) frame started
 void tud_sof_cb(uint32_t frame_count);
 

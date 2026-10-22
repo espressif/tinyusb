@@ -49,6 +49,10 @@ TU_ATTR_WEAK void tud_event_hook_cb(uint8_t rhport, uint32_t eventid, bool in_is
   (void) rhport; (void) eventid; (void) in_isr;
 }
 
+TU_ATTR_WEAK void tud_dwc2_setup_dma_error_cb(uint8_t rhport) {
+  (void) rhport;
+}
+
 TU_ATTR_WEAK void tud_sof_cb(uint32_t frame_count) {
   (void) frame_count;
 }

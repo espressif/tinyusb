@@ -52,12 +52,27 @@ runs:
       env:
         TOOLCHAIN: ${{ inputs.toolchain }}
       run: |
+        apt_install_with_retry() {
+          for attempt in 1 2 3; do
+            sudo apt-get update && \
+            sudo apt-get install -y --no-install-recommends "$@" && return 0
+
+            if [[ "$attempt" -eq 3 ]]; then
+              echo "apt install failed after $attempt attempts: $*"
+              return 1
+            fi
+
+            echo "apt install failed, retrying in 15s..."
+            sleep 15
+          done
+        }
+
         if [[ ${TOOLCHAIN} == arm-iar ]]; then
           sudo dpkg -i ~/cache/${TOOLCHAIN}/iar-lmsc-tools.deb
-          sudo apt install -y ~/cache/${TOOLCHAIN}/cxarm.deb
+          apt_install_with_retry ~/cache/${TOOLCHAIN}/cxarm.deb
           TOOLCHAIN_PATH="/opt/iar/cxarm/arm/bin"
         elif [[ ${TOOLCHAIN} == ft9xx-gcc ]]; then
-          sudo apt install -y ~/cache/${TOOLCHAIN}/ft9xxtoolchain.deb
+          apt_install_with_retry ~/cache/${TOOLCHAIN}/ft9xxtoolchain.deb
           TOOLCHAIN_PATH="/opt/ft32/bin"
         else
           # Find the single toolchain bin directory

@@ -33,7 +33,18 @@ jobs:
 
     - name: Build Fuzzer
       run: |
-        sudo apt install libc++-dev libc++abi-dev
+        for attempt in 1 2 3; do
+          sudo apt-get update && \
+          sudo apt-get install -y --no-install-recommends libc++-dev libc++abi-dev && break
+
+          if [ "$attempt" -eq 3 ]; then
+            echo "apt install failed after $attempt attempts"
+            exit 1
+          fi
+
+          echo "apt install failed, retrying in 15s..."
+          sleep 15
+        done
         clang --version
         export CC=clang
         export CXX=clang++

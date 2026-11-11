@@ -26,7 +26,7 @@
 #include "tusb_types.h"
 #include "class/audio/audio.h"
 #include "class/midi/midi.h"
-#include "device/usbd.h"
+#include "midi_descriptor_macros.h"
 
 void setUp(void) {}
 void tearDown(void) {}

@@ -41,12 +41,10 @@ runs:
           curl -L "$TOOLCHAIN_URL" -o toolchain.zip
           unzip -q toolchain.zip -d ~/cache/${TOOLCHAIN}
           ~/cache/${TOOLCHAIN}/xpack-arm-none-eabi-gcc-14.2.1-1.1/bin/arm-none-eabi-gcc.exe --version
-        elif [[ ${FILE_EXT} == gz ]]; then
-          wget --progress=dot:giga ${TOOLCHAIN_URL} -O toolchain.tar.gz
-          tar -C ~/cache/${TOOLCHAIN} -xaf toolchain.tar.gz
         else
-          echo "Unsupported toolchain file extension: ${FILE_EXT}"
-          exit 1
+          # Handle tarballs regardless of compression suffix (.gz, .xz, .bz2, etc.).
+          wget --progress=dot:giga ${TOOLCHAIN_URL} -O toolchain.tar
+          tar -C ~/cache/${TOOLCHAIN} -xaf toolchain.tar
         fi
       shell: bash
 
@@ -54,12 +52,27 @@ runs:
       env:
         TOOLCHAIN: ${{ inputs.toolchain }}
       run: |
+        apt_install_with_retry() {
+          for attempt in 1 2 3; do
+            sudo apt-get update && \
+            sudo apt-get install -y --no-install-recommends "$@" && return 0
+
+            if [[ "$attempt" -eq 3 ]]; then
+              echo "apt install failed after $attempt attempts: $*"
+              return 1
+            fi
+
+            echo "apt install failed, retrying in 15s..."
+            sleep 15
+          done
+        }
+
         if [[ ${TOOLCHAIN} == arm-iar ]]; then
           sudo dpkg -i ~/cache/${TOOLCHAIN}/iar-lmsc-tools.deb
-          sudo apt install -y ~/cache/${TOOLCHAIN}/cxarm.deb
+          apt_install_with_retry ~/cache/${TOOLCHAIN}/cxarm.deb
           TOOLCHAIN_PATH="/opt/iar/cxarm/arm/bin"
         elif [[ ${TOOLCHAIN} == ft9xx-gcc ]]; then
-          sudo apt install -y ~/cache/${TOOLCHAIN}/ft9xxtoolchain.deb
+          apt_install_with_retry ~/cache/${TOOLCHAIN}/ft9xxtoolchain.deb
           TOOLCHAIN_PATH="/opt/ft32/bin"
         else
           # Find the single toolchain bin directory

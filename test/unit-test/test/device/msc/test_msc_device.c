@@ -32,7 +32,7 @@
 #include "tusb_fifo.h"
 #include "tusb.h"
 #include "usbd.h"
-TEST_SOURCE_FILE("usbd_control.c")
+TEST_SOURCE_FILE("usbd.c")
 TEST_SOURCE_FILE("msc_device.c")
 
 // Mock File
